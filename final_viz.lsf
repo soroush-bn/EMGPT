@@ -70,15 +70,23 @@ for LAYER in 0 $LAST_LAYER; do
         --save_dir "$VIZ_DIR/attention"
 done
 
-# Stage D was removed as it is now integrated into Stage B (compare_real_vs_synthetic.py)
-
 echo "--- Stage E: Classification Results ---"
 # Copy the final results CSV if it exists
 if [ -f "$BASE_DIR/classification_experiments_results.csv" ]; then
     cp "$BASE_DIR/classification_experiments_results.csv" "$VIZ_DIR/"
 fi
 
-echo "--- Stage F: Consolidate All Phase Results ---"
+echo "--- Stage F: Spectral and Statistical Fidelity ---"
+python compare_spectral_fidelity.py \
+    --config "$CONFIG" \
+    --vqvae_config "$VQ_CONFIG"
+
+echo "--- Stage G: Raw Signal Ratio Comparisons (P6 & P7) ---"
+python vis_original_vs_reconstructed.py \
+    --config "$CONFIG" \
+    --vqvae_config "$VQ_CONFIG"
+
+echo "--- Stage H: Consolidate All Phase Results ---"
 python consolidate_results.py --config "$CONFIG"
 
 echo "=========================================================="

@@ -107,6 +107,10 @@ def run_batch_generation():
         print(f"Merging results for {prompt_size}_{gen_size}...")
         final_tokens = np.concatenate(generated_results, axis=0)
         
+        # Verification Check
+        assert len(final_tokens) == num_samples, f"Size mismatch in ratio {prompt_size}:{gen_size}! Expected {num_samples}, but generated {len(final_tokens)}"
+        print(f"SIZE VERIFIED: Synthetic dataset matches source size ({num_samples} samples).")
+        
         cols = ["gt"] + [f"col_{j}" for j in range(total_window_size)]
         output_data = np.concatenate([all_labels.cpu().numpy().reshape(-1, 1), final_tokens], axis=1)
         df_out = pd.DataFrame(output_data, columns=cols)

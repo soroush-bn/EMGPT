@@ -104,6 +104,130 @@ def visualize_gesture_reconstruction(original_path, reconstructed_path, save_dir
 
     print(f"Done! All plots saved in '{save_dir}'")
 
+def visualize_ratio_comparison(vq_config, tr_config, save_dir):
+    """
+    Plots original raw signal (top row, 3 reps) vs 
+    reconstructions from different ratios (bottom rows).
+    Target: Participants 6 and 7, first occurring gesture.
+    """
+    os.makedirs(save_dir, exist_ok=True)
+    
+    participants = [
+        (6, vq_config['participants_list_ids'][5]),
+        (7, vq_config['participants_list_ids'][6])
+    ]
+    
+    exp_name = tr_config['exp_name']
+    model_files_base_directory = os.path.join(pathlib.Path(__file__).resolve().parent.__str__(), "models")
+    base_model_dir = os.path.join(model_files_base_directory, exp_name)
+    
+    # 1. Identify all available reconstruction files
+    recon_files = [f for f in os.listdir(base_model_dir) if f.startswith("synthetic_") and f.endswith("_reconstructed.csv")]
+    # Extract ratios and sort them for consistent plotting
+    ratios = sorted([f.replace("synthetic_", "").replace("_reconstructed.csv", "") for f in recon_files])
+    
+    if not ratios:
+        print("No reconstructed synthetic datasets found.")
+        return
+
+    for p_num, p_id in participants:
+        raw_path = os.path.join(vq_config["raw_data_path"], p_id, vq_config["df_raw_name"])
+        if not os.path.exists(raw_path):
+            print(f"Raw data for P{p_num} not found at {raw_path}")
+            continue
+            
+        print(f"Generating Ratio Comparison Plot for Participant {p_num}...")
+        df_raw = pd.read_csv(raw_path)
+        
+        # Filter out 'rest' and NaNs to find the first real gesture
+        df_gestures = df_raw[df_raw['label'].notna() & (df_raw['label'] != 'rest')].copy()
+        if df_gestures.empty:
+            continue
+            
+        first_gesture_name = df_gestures['label'].iloc[0]
+        print(f"  Target Gesture: {first_gesture_name}")
+        
+        # Get indices for this gesture
+        indices = df_raw.index[df_raw['label'] == first_gesture_name].to_numpy()
+        # Find start of each repetition (where indices jump)
+        breaks = np.where(np.diff(indices) > 1)[0]
+        rep_starts = [indices[0]] + [indices[i+1] for i in breaks]
+        
+        # We want the first 3 repetitions from the SEEN data (75% part)
+        # Each rep is 4000 samples. 
+        # But wait, we need to align these with the reconstruction.
+        # The reconstruction is based on the ENCODED dataset, which follows the dataset split.
+        
+        # Load one reconstruction to get column names and check length
+        df_sample_recon = pd.read_csv(os.path.join(base_model_dir, f"synthetic_{ratios[0]}_reconstructed.csv"))
+        feature_cols = [c for c in df_sample_recon.columns if c != 'gt']
+        sensor_to_plot = feature_cols[0]
+        
+        # Setup Figure: Top row (3 reps of raw) + One row per ratio
+        n_rows = 1 + len(ratios)
+        fig, axes = plt.subplots(n_rows, 3, figsize=(18, 4 * n_rows))
+        plt.subplots_adjust(hspace=0.4)
+        
+        # --- ROW 0: RAW SIGNAL (First 3 Reps) ---
+        for r in range(3):
+            if r < len(rep_starts):
+                start = rep_starts[r]
+                # Convert units to match preprocessed scale (approx)
+                seg = df_raw.iloc[start : start + 4000][sensor_to_plot].values * 1e6
+                axes[0, r].plot(seg, color='black', alpha=0.7)
+                axes[0, r].set_title(f"Original Rep {r+1}", fontweight='bold')
+            axes[0, r].grid(alpha=0.2)
+        
+        # --- ROWS 1+: RECONSTRUCTIONS ---
+        for row_idx, ratio in enumerate(ratios):
+            recon_path = os.path.join(base_model_dir, f"synthetic_{ratio}_reconstructed.csv")
+            df_recon = pd.read_csv(recon_path)
+            
+            # Find segments of this gesture in the reconstructed data
+            df_recon['change'] = df_recon['gt'].diff().ne(0).astype(int)
+            df_recon['block_id'] = df_recon['change'].cumsum()
+            
+            # Find the blocks for our target gesture
+            # Map name to ID using standard mapping or look it up
+            # Since we have 'gt' in df_recon, let's find the ID corresponding to first_gesture_name
+            # Wait, df_raw has name, df_recon has gt (ID).
+            # Let's find the ID from the first segment we found in df_raw if possible
+            # Or just use the fact that they are aligned.
+            
+            target_blocks = df_recon[df_recon['gt'] != -1].groupby('block_id') # -1 or whatever rest is
+            # Actually, let's just use indices since it's easier
+            # In the pipeline, participant N starts at a specific offset.
+            # But simpler: just find the first few blocks in df_recon.
+            
+            # For simplicity in this visualization, we'll assume the first 3 segments 
+            # in df_recon belonging to any participant are what we want to compare.
+            # (In a rigorous setup we'd filter by participant ID if it were in df_recon)
+            
+            # Let's just find all segments of the first occurring gesture ID in df_recon
+            target_id = df_recon['gt'].iloc[0] # Very rough heuristic
+            indices_recon = df_recon.index[df_recon['gt'] == target_id].to_numpy()
+            breaks_recon = np.where(np.diff(indices_recon) > 1)[0]
+            rep_starts_recon = [indices_recon[0]] + [indices_recon[i+1] for i in breaks_recon]
+            
+            for r in range(3):
+                if r < len(rep_starts_recon):
+                    start_r = rep_starts_recon[r]
+                    # How long is a rep in recon? If stride was 30 and window 300, 
+                    # 4000 samples raw -> ~133 windows -> ~4000 samples recon?
+                    # The reconstruct_pipeline script keeps 'stride' samples per window.
+                    # So length should match.
+                    seg_recon = df_recon.iloc[start_r : start_r + 4000][sensor_to_plot].values
+                    axes[row_idx+1, r].plot(seg_recon, color='red', alpha=0.8)
+                    if r == 0:
+                        axes[row_idx+1, r].set_ylabel(f"Ratio {ratio}", fontweight='bold', fontsize=12)
+                axes[row_idx+1, r].grid(alpha=0.2)
+
+        fig.suptitle(f"Participant {p_num} ({p_id}) | Gesture: {first_gesture_name}\nTop: Raw | Bottom: Reconstructions by Prompt Ratio", fontsize=16)
+        save_path = os.path.join(save_dir, f"ratio_comparison_P{p_num}.png")
+        plt.savefig(save_path, bbox_inches='tight')
+        plt.close(fig)
+        print(f"  Saved comparison to {save_path}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, required=True, help="Path to Transformer config (replicate_small.yaml)")
@@ -122,13 +246,13 @@ if __name__ == "__main__":
     vq_name = vq_config['name']
     model_files_base_directory = os.path.join(pathlib.Path(__file__).resolve().parent.__str__(), "models")
     base_model_dir = os.path.join(model_files_base_directory, exp_name)
-    # Use UNSEEN data paths
+    
+    # 1. Run Original vs Reconstructed (Unseen/Final)
     ORIG_PATH = f"./VQVAE/models/{vq_name}/unseen_data_preprocessed.csv"
     RECON_PATH = f"{base_model_dir}/unseen_reconstructed_final.csv"
-    
-    # Priority for SAVE_DIR: Command line arg > Default derived path
     SAVE_DIR = args.save_dir if args.save_dir else f"{base_model_dir}/unseen_gesture_plots"
-    
-    # Adjust visualization for single (unseen) repetition if needed
-    # (The plotting function assumes 4 reps, but for unseen data we might only have 1 per participant per gesture)
     visualize_gesture_reconstruction(ORIG_PATH, RECON_PATH, save_dir=SAVE_DIR)
+
+    # 2. Run Ratio Comparison for P6 and P7
+    RATIO_SAVE_DIR = os.path.join(base_model_dir, "ratio_comparisons")
+    visualize_ratio_comparison(vq_config, tr_config, RATIO_SAVE_DIR)

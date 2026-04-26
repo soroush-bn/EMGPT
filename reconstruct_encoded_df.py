@@ -109,29 +109,17 @@ def main():
     # 3. Fallback to old naming 'synthetic_df_...'
     
     base_model_dir = os.path.join(model_files_base_directory, exp_name)
-    ENCODED_DATA_PATH = os.path.join(base_model_dir, "unseen_synthetic_df_5_70.csv")
     
-    if not os.path.exists(ENCODED_DATA_PATH):
-        ENCODED_DATA_PATH = os.path.join(base_model_dir, "unseen_synthetic_encoded_samples.csv")
-        
-    if not os.path.exists(ENCODED_DATA_PATH):
-        synth_files = sorted([f for f in os.listdir(base_model_dir) if f.startswith("unseen_synthetic_")], reverse=True)
-        if synth_files:
-            ENCODED_DATA_PATH = os.path.join(base_model_dir, synth_files[0])
-            
-    if not os.path.exists(ENCODED_DATA_PATH):
-        synth_files = sorted([f for f in os.listdir(base_model_dir) if f.startswith("synthetic_df_")], reverse=True)
-        if synth_files:
-            ENCODED_DATA_PATH = os.path.join(base_model_dir, synth_files[0])
+    # 1. Find all synthetic datasets matching the pattern
+    synthetic_files = [f for f in os.listdir(base_model_dir) if f.startswith("seen_synthetic_df_") and f.endswith(".csv")]
     
-    MODEL_WEIGHTS_PATH = os.path.join(vqvae_models_dir, vq_name, "final_model.pth") 
-    SAVE_OUTPUT_PATH = os.path.join(base_model_dir, "unseen_reconstructed_final.csv")
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    if not os.path.exists(CONFIG_PATH):
-        print(f"Error: Config not found at {CONFIG_PATH}")
+    if not synthetic_files:
+        print(f"No synthetic datasets found in {base_model_dir}")
         return
+
+    MODEL_WEIGHTS_PATH = os.path.join(vqvae_models_dir, vq_name, "final_model.pth") 
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Initialize and Load Model
     model = SDformerVQVAE(vqvae_config).to(device)
@@ -143,23 +131,31 @@ def main():
         print(f"Error: Weights not found at {MODEL_WEIGHTS_PATH}")
         return
 
-    try:
-        recon_df, _ = reconstruct_pipeline(
-            ORIGINAL_DATA_PATH, 
-            ENCODED_DATA_PATH, 
-            model, 
-            device,
-            window_size=vqvae_config.get('window_size', 300),
-            stride=vqvae_config.get('stride', 150)
-        )
+    for file_name in synthetic_files:
+        # Extract ratio from file_name (e.g., seen_synthetic_df_70_5.csv -> 70_5)
+        ratio = file_name.replace("seen_synthetic_df_", "").replace(".csv", "")
         
-        # Save results
-        os.makedirs(os.path.dirname(SAVE_OUTPUT_PATH), exist_ok=True)
-        recon_df.to_csv(SAVE_OUTPUT_PATH, index=False)
-        print(f"Successfully saved reconstructed data to: {SAVE_OUTPUT_PATH}")
+        ENCODED_DATA_PATH = os.path.join(base_model_dir, file_name)
+        SAVE_OUTPUT_PATH = os.path.join(base_model_dir, f"synthetic_{ratio}_reconstructed.csv")
         
-    except Exception as e:
-        print(f"Reconstruction failed: {e}")
+        print(f"\n--- Processing {file_name} ---")
+        try:
+            recon_df, _ = reconstruct_pipeline(
+                ORIGINAL_DATA_PATH, 
+                ENCODED_DATA_PATH, 
+                model, 
+                device,
+                window_size=vqvae_config.get('window_size', 300),
+                stride=vqvae_config.get('stride', 30) # Updated to 30 per your 10% stride description
+            )
+            
+            # Save results
+            os.makedirs(os.path.dirname(SAVE_OUTPUT_PATH), exist_ok=True)
+            recon_df.to_csv(SAVE_OUTPUT_PATH, index=False)
+            print(f"Successfully saved reconstructed data to: {SAVE_OUTPUT_PATH}")
+            
+        except Exception as e:
+            print(f"Reconstruction failed for {file_name}: {e}")
 
 if __name__ == "__main__":
     main()
