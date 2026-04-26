@@ -1,0 +1,50 @@
+#!/bin/bash
+
+set -euo pipefail
+# Load environment so "module" command works
+if [ -f /etc/profile.d/modules.sh ]; then
+    source /etc/profile.d/modules.sh
+fi
+module purge
+module load miniconda/pytorch-tensorflow-gpu
+module list
+python -c "import torch; print('PyTorch version:', torch.__version__)"
+
+# source "$(conda info --base)/etc/profile.d/conda.sh"
+# conda activate buildrust
+
+python -m pip install --user tqdm
+python -m pip install --user PyYAML
+python -m pip install --user matplotlib
+python -m pip install --user seaborn
+python -m pip install --user wandb
+export WANDB_API_KEY=$(cat ~/.wandb_key)
+echo "Config argument: $CONFIG"
+
+# Debug: verify environment
+echo "Python executable: $(which python)"
+python -c "import sys; print('sys.executable:', sys.executable); print('sys.path:', sys.path)"
+
+export PYTHONUNBUFFERED=1
+
+# Echo git branch and commit information
+echo "Git Branch: $(git rev-parse --abbrev-ref HEAD)"
+echo "Git Commit: $(git rev-parse HEAD)"
+echo "Git Commit (short): $(git rev-parse --short HEAD)"
+
+echo "Config argument: $CONFIG"
+
+# Get number of GPUs available
+NUM_GPUS=$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)
+echo "Number of GPUs detected: $NUM_GPUS"
+export USE_OPENMP=1
+cd VQVAE
+python -u pipeline.py --config "$CONFIG"
+
+
+# Echo git branch and commit information
+echo "Git Branch: $(git rev-parse --abbrev-ref HEAD)"
+echo "Git Commit: $(git rev-parse HEAD)"
+echo "Git Commit (short): $(git rev-parse --short HEAD)"
+
+
