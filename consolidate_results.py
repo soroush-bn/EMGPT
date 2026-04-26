@@ -48,20 +48,42 @@ def consolidate(config_path):
         if iters:
             latest_iter = sorted(iters, key=lambda x: int(x.split('_')[1]))[-1]
             shutil.copytree(os.path.join(trans_src, latest_iter), os.path.join(phase2_dir, "latest_checkpoint"), dirs_exist_ok=True)
-        print("  [Phase 2] Transformer latest checkpoint copied.")
+            # Copy evaluation info.yml to the root of Phase 2
+            info_src = os.path.join(trans_src, latest_iter, "info.yml")
+            if os.path.exists(info_src):
+                shutil.copy2(info_src, os.path.join(phase2_dir, "evaluation_summary.yml"))
+        
+        # Copy attention heatmaps if they exist (from final_visualization/attention)
+        attn_src = os.path.join(trans_src, "final_visualization", "attention")
+        if os.path.exists(attn_src):
+            shutil.copytree(attn_src, os.path.join(phase2_dir, "attention_heatmaps"), dirs_exist_ok=True)
+            
+        print("  [Phase 2] Transformer latest checkpoint, evaluation summary, and attention heatmaps copied.")
 
         # Phase 3: Generation (Synthetic Data & Visualization)
         phase3_dir = os.path.join(results_dir, "phase3_generation")
         os.makedirs(phase3_dir, exist_ok=True)
-        # Copy synthetic CSVs
+        # Copy synthetic CSVs (Tokens and Reconstructed Signals)
         for f in os.listdir(trans_src):
-            if f.endswith(".csv") and ("synthetic" in f or "generated" in f):
+            if f.endswith(".csv") and ("synthetic" in f or "generated" in f or "reconstructed" in f):
                 shutil.copy2(os.path.join(trans_src, f), phase3_dir)
+        
         # Copy figures from final_visualization if they exist
         viz_src = os.path.join(trans_src, "final_visualization")
         if os.path.exists(viz_src):
             shutil.copytree(viz_src, os.path.join(phase3_dir, "visualizations"), dirs_exist_ok=True)
-        print("  [Phase 3] Generation results and visualizations copied.")
+            
+        # Copy ratio comparison plots
+        ratio_viz_src = os.path.join(trans_src, "ratio_comparisons")
+        if os.path.exists(ratio_viz_src):
+            shutil.copytree(ratio_viz_src, os.path.join(phase3_dir, "ratio_comparisons"), dirs_exist_ok=True)
+            
+        # Copy fidelity reports (Spectral/Statistical)
+        fidelity_src = os.path.join(trans_src, "fidelity_reports")
+        if os.path.exists(fidelity_src):
+            shutil.copytree(fidelity_src, os.path.join(phase3_dir, "fidelity_reports"), dirs_exist_ok=True)
+            
+        print("  [Phase 3] Generation tokens, reconstructions, visualizations, and fidelity reports copied.")
 
         # Phase 4: Classification
         phase4_dir = os.path.join(results_dir, "phase4_classification")
