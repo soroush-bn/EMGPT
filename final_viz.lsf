@@ -11,8 +11,8 @@ module purge
 module load miniconda/pytorch-tensorflow-gpu
 
 # --- SINGLE SOURCE OF TRUTH ---
-export VQ_CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/replicate_unseen.yaml"
-export CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/replicate_unseen.yaml"
+export VQ_CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/model_small.yaml"
+export CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/model_small.yaml"
 # ------------------------------
 
 # --- 1. SETUP DIRECTORIES ---

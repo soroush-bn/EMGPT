@@ -1,0 +1,90 @@
+exp_name: "model_small"
+wandb_project_name: "model_small"
+
+# --- OPTION B: ALL GESTURES ---
+filter_class: null       # Must be null to load all gestures!
+num_classes: 17          # Required for the gesture-conditioning embedding
+
+eval_interval: 500
+log_interval: 10
+eval_iters: 50
+eval_only: false
+always_save_checkpoint: true
+init_from: "scratch"
+wandb_log: true
+gradient_accumulation_steps: 1
+batch_size: 64
+
+# --- CRITICAL CHANGES FOR ENCODED DATA ---
+block_size: 74           # Correct: 75 columns - 1 for offset targeting
+vocab_size: 512          # Matches your VQ-VAE codebook size
+# -----------------------------------------
+
+# Explicit paths from VQ-VAE phase
+train_data_path: "./VQVAE/models/unseen/train_encoded_df.csv"
+val_data_path: "./VQVAE/models/unseen/unseen_encoded_df.csv"
+
+ckpt_path: null
+
+# Model architecture
+n_layer: 6
+n_head: 64
+n_embd: 128
+dropout: 0.2
+bias: false
+
+# Optimizer settings
+learning_rate: 0.0006   
+max_iters: 500000
+weight_decay: 0.1
+beta1: 0.9
+beta2: 0.95
+grad_clip: 1.0
+
+# Learning rate decay
+decay_lr: true
+warmup_iters: 1000      
+lr_decay_iters: 30000
+min_lr: 0.00006
+
+# System settings
+backend: "nccl"
+device: "cuda"
+dtype: "float16"       
+compile: false          
+
+# Additional settings
+split_seed: 42
+
+### Sample/Generation Config
+prompt_size: 1          # You only need 1 start token to kick off generation
+token_len: 74           # Generate the remaining sequence
+top_k: 10
+temperature: 0.8
+
+# --- VQ-VAE CONFIGURATION ---
+vqvae:
+  name: "model_small"
+  number_of_epochs: 200
+  input_dim: 8         
+  hidden_dim: 512    
+  codebook_size: 512
+  code_dim: 128
+  window_size: 300    
+  stride : 30  
+  lambda_loss: 0.1    
+  batch_size: 64
+  learning_rate: 1e-4
+  decay: 0.99           
+
+  wandb_log: True
+  wandb_project: "vqvae_model_small"
+
+  participants_list_ids : ["033106b27b","bc4dd952fe","31afab1e30","97c6aaac2d","7037a93026","98aa5fac2d","ecfa481b42","e49db6578f","27f6898a3f","3f858df9cf","9780ed81f4"] 
+  sensor_type : "emg"
+  axis : "x"
+  location : "forearm" 
+
+  raw_data_path : "/home/sbaghernezha/data/"
+  df_raw_name : "final_df.csv"
+  # converted_data_path: "/home/sbaghernezha/projects/chatemg/chatemg/data_for_vqvae/"
