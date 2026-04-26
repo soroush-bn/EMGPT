@@ -115,7 +115,8 @@ if __name__ == "__main__":
     with open(args.config, 'r') as f:
         tr_config = yaml.safe_load(f)
     with open(args.vqvae_config, 'r') as f:
-        vq_config = yaml.safe_load(f)
+        vq_config_full = yaml.safe_load(f)
+        vq_config = vq_config_full.get('vqvae', vq_config_full)
 
     exp_name = tr_config['exp_name']
     vq_name = vq_config['name']

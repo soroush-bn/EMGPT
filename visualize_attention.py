@@ -14,7 +14,9 @@ def visualize_attention(config_path, vqvae_config_path, model_path, layer_to_viz
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
     with open(vqvae_config_path, "r") as f:
-        vq_conf = yaml.safe_load(f)
+        vqvae_config_full = yaml.safe_load(f)
+        vqvae_config = vqvae_config_full.get('vqvae', vqvae_config_full)
+
     
     # Create directory if it doesn't exist
     if not os.path.exists(save_dir):
@@ -84,11 +86,11 @@ def visualize_attention(config_path, vqvae_config_path, model_path, layer_to_viz
 
     # 5b. Reconstruct the Input Signal for context
     from decoder import VQVAESignalDecoder
-    vq_name = vq_conf['name']
+    vq_name = vqvae_config['name']
     vq_ckpt = f"VQVAE/models/{vq_name}/final_model.pth"
     
     try:
-        decoder = VQVAESignalDecoder(vqvae_model_path=vq_ckpt, vqvae_config=vq_conf)
+        decoder = VQVAESignalDecoder(vqvae_model_path=vq_ckpt, vqvae_config=vqvae_config)
         recon_input = decoder.decode_window(X)[0] # (Time, Channels)
         
         fig_inp, ax_inp = plt.subplots(figsize=(10, 4))

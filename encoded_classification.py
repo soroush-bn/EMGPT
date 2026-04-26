@@ -118,11 +118,13 @@ def main():
     with open(args.config, 'r') as f:
         tr_config = yaml.safe_load(f)
     with open(args.vqvae_config, 'r') as f:
-        vq_config = yaml.safe_load(f)
+        vqvae_config_full = yaml.safe_load(f)
+        vqvae_config = vqvae_config_full.get('vqvae', vqvae_config_full)
+
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     exp_name = tr_config['exp_name']
-    vq_name = vq_config['name']
+    vq_name = vqvae_config['name']
     
     model_files_base_directory = os.path.join(pathlib.Path(__file__).resolve().parent.__str__(), "models")
     save_dir = os.path.join(model_files_base_directory, exp_name)
@@ -132,7 +134,7 @@ def main():
     VQVAE_WEIGHTS = f"./VQVAE/models/{vq_name}/final_model.pth"
 
     print(f"\n--- Classification Experiments Workflow [{exp_name}] ---")
-    vqvae = SDformerVQVAE(vq_config).to(device)
+    vqvae = SDformerVQVAE(vqvae_config).to(device)
     if os.path.exists(VQVAE_WEIGHTS):
         vqvae.load_state_dict(torch.load(VQVAE_WEIGHTS, map_location=device))
         print(f"VQ-VAE weights loaded.")

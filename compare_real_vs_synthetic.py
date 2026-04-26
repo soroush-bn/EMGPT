@@ -13,7 +13,8 @@ def compare_real_vs_synthetic(config_path, vq_config_path, participant_idx=0):
     with open(config_path, "r") as f:
         tr_config = yaml.safe_load(f)
     with open(vq_config_path, 'r') as f:
-        vq_config = yaml.safe_load(f)
+        vq_config_full = yaml.safe_load(f)
+        vq_config = vq_config_full.get('vqvae', vq_config_full)
 
     exp_name = tr_config['exp_name']
     vq_name = vq_config['name']

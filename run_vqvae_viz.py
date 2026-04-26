@@ -13,15 +13,17 @@ def main():
 
     # 1. Load Config
     with open(args.vqvae_config, 'r') as f:
-        vq_config = yaml.safe_load(f)
+        vqvae_config_full = yaml.safe_load(f)
+        vqvae_config = vqvae_config_full.get('vqvae', vqvae_config_full)
+
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # 2. Initialize Model
-    model = SDformerVQVAE(vq_config).to(device)
+    model = SDformerVQVAE(vqvae_config).to(device)
     
     # 3. Load Weights
-    vq_name = vq_config['name']
+    vq_name = vqvae_config['name']
     ckpt_path = f"VQVAE/models/{vq_name}/final_model.pth"
     
     if os.path.exists(ckpt_path):
@@ -32,7 +34,7 @@ def main():
         return
 
     # 4. Initialize Visualizer
-    viz = Visualizer(model, device, vq_config)
+    viz = Visualizer(model, device, vqvae_config)
     
     # Override save_dir if provided
     if args.save_dir:

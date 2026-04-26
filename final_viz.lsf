@@ -11,8 +11,8 @@ module purge
 module load miniconda/pytorch-tensorflow-gpu
 
 # --- SINGLE SOURCE OF TRUTH ---
-export VQ_CONFIG="/gpfs/home/sbaghernezha/projects/chatemg/chatemg/scripts/VQVAE/unseen_config.yaml"
-export CONFIG="/gpfs/home/sbaghernezha/projects/chatemg/chatemg/scripts/configs/replicate_unseen.yaml"
+export VQ_CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/replicate_unseen.yaml"
+export CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/replicate_unseen.yaml"
 # ------------------------------
 
 # --- 1. SETUP DIRECTORIES ---
@@ -36,7 +36,7 @@ echo "--- Stage A: Synthetic Signal Grid (Quick View) ---"
 python encoded_visualizer.py \
     --config "$CONFIG" \
     --vqvae_config "$VQ_CONFIG" \
-    --vqvae_ckpt "./VQVAE/models/$(python -c "import yaml; print(yaml.safe_load(open('$VQ_CONFIG'))['name'])")/final_model.pth"
+    --vqvae_ckpt "./VQVAE/models/$(python -c "import yaml; cfg=yaml.safe_load(open('$VQ_CONFIG')); print(cfg['vqvae']['name'] if 'vqvae' in cfg else cfg['name'])")/final_model.pth"
 
 mv "$BASE_DIR/synthetic_signals_grid.png" "$VIZ_DIR/"
 

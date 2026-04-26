@@ -89,10 +89,12 @@ def main():
     with open(args.config, 'r') as f:
         tr_config = yaml.safe_load(f)
     with open(args.vqvae_config, 'r') as f:
-        vq_config = yaml.safe_load(f)
+        vqvae_config_full = yaml.safe_load(f)
+        vqvae_config = vqvae_config_full.get('vqvae', vqvae_config_full)
+
 
     exp_name = tr_config['exp_name']
-    vq_name = vq_config['name']
+    vq_name = vqvae_config['name']
 
     # --- Path Configuration ---
     model_files_base_directory = os.path.join(pathlib.Path(__file__).resolve().parent.__str__(), "models")
@@ -132,7 +134,7 @@ def main():
         return
 
     # Initialize and Load Model
-    model = SDformerVQVAE(vq_config).to(device)
+    model = SDformerVQVAE(vqvae_config).to(device)
     
     if os.path.exists(MODEL_WEIGHTS_PATH):
         model.load_state_dict(torch.load(MODEL_WEIGHTS_PATH, map_location=device))
@@ -147,8 +149,8 @@ def main():
             ENCODED_DATA_PATH, 
             model, 
             device,
-            window_size=vq_config.get('window_size', 300),
-            stride=vq_config.get('stride', 150)
+            window_size=vqvae_config.get('window_size', 300),
+            stride=vqvae_config.get('stride', 150)
         )
         
         # Save results

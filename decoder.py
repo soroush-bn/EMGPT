@@ -134,7 +134,8 @@ if __name__ == "__main__":
     
     # Load the VQ-VAE configuration
     with open(args.vqvae_config, 'r') as file:
-        vqvae_config = yaml.safe_load(file)
+        vqvae_config_full = yaml.safe_load(file)
+        vqvae_config = vqvae_config_full.get('vqvae', vqvae_config_full)
         
     # Initialize the decoder pipeline
     decoder = VQVAESignalDecoder(

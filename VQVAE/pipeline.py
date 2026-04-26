@@ -17,7 +17,12 @@ parser.add_argument('--config', type=str, required=True, help='Path to the confi
 args = parser.parse_args()
 
 with open(args.config, "r") as file:
-    config = yaml.safe_load(file)
+    full_config = yaml.safe_load(file)
+    # If the config is nested (merged), extract the vqvae part
+    if 'vqvae' in full_config:
+        config = full_config['vqvae']
+    else:
+        config = full_config
 
 save_dir = f"./models/{config['name']}/"
 os.makedirs(save_dir, exist_ok=True)

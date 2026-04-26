@@ -87,7 +87,8 @@ if __name__ == "__main__":
         vq_ckpt_path = vq_ckpt_path or f"./VQVAE/models/{vq_name}/final_model.pth"
 
     with open(vq_config_path, 'r') as file:
-        vqvae_config = yaml.safe_load(file)
+        vqvae_config_full = yaml.safe_load(file)
+        vqvae_config = vqvae_config_full.get('vqvae', vqvae_config_full)
         
     # 2. Initialize the decoder
     decoder = VQVAESignalDecoder(
