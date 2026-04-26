@@ -78,7 +78,10 @@ if [ -f "$BASE_DIR/classification_experiments_results.csv" ]; then
     cp "$BASE_DIR/classification_experiments_results.csv" "$VIZ_DIR/"
 fi
 
+echo "--- Stage F: Consolidate All Phase Results ---"
+python consolidate_results.py --config "$CONFIG"
+
 echo "=========================================================="
-echo "All visualizations completed!"
-echo "Check: $VIZ_DIR"
+echo "All visualizations and consolidation completed!"
+echo "Main results directory: $(python -c "import yaml; print(yaml.safe_load(open('$CONFIG'))['exp_name'])")_results"
 echo "=========================================================="

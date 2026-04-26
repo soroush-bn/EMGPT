@@ -58,3 +58,10 @@ def evaluate_model(model, dataloader, device,config ):
     if usage_percent < 5.0:
         print("WARNING: Low codebook usage detected. Your model might be suffering from code collapse.")
 
+    return {
+        "mse": avg_mse,
+        "unique_codes": unique_codes,
+        "total_codes": total_codes,
+        "usage_percent": usage_percent
+    }
+

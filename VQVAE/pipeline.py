@@ -164,6 +164,41 @@ def encode_and_save(dataset, save_path):
 encode_and_save(train_dataset, train_encoded_save_path)
 encode_and_save(unseen_dataset, unseen_encoded_save_path)
 
+# --- 7. NEW: Final Evaluation and Specific Visualizations ---
+print("\n--- Running Final Evaluation & Targeted Visualizations ---")
+eval_results = evaluate_model(model, val_loader, device, config)
+
+# Save metrics to a YAML file for Phase 1 results
+with open(os.path.join(save_dir, "evaluation_metrics.yaml"), "w") as f:
+    yaml.dump(eval_results, f)
+
+# Targeted Visualizations for P6 and P7
+# participants_list_ids : ["033106b27b","bc4dd952fe","31afab1e30","97c6aaac2d","7037a93026","98aa5fac2d","ecfa481b42","e49db6578f","27f6898a3f","3f858df9cf","9780ed81f4"]
+# Participant 6 is index 5 ("98aa5fac2d"), Participant 7 is index 6 ("ecfa481b42")
+target_participants = [
+    (6, config['participants_list_ids'][5]), 
+    (7, config['participants_list_ids'][6])
+]
+
+label_mapping = {
+    "Thumb Extension":0,"index Extension":1,"Middle Extension":2,"Ring Extension":3,
+    "Pinky Extension":4,"Thumbs Up":5,"Right Angle":6,"Peace":7,"OK":8,"Horn":9,"Hang Loose":10,
+    "Power Grip":11,"Hand Open":12,"Wrist Extension":13,"Wrist Flexion":14,"Ulnar deviation":15,"Radial Deviation":16    
+}
+
+for p_num, p_id in target_participants:
+    print(f"Generating triple-comparison plots for Participant {p_num} ({p_id})...")
+    raw_path = os.path.join(config["raw_data_path"], p_id, config["df_raw_name"])
+    if os.path.exists(raw_path):
+        raw_df = pd.read_csv(raw_path)
+        # Convert units if needed (mirroring dataset.py)
+        if 'emg' in config['sensor_type']:
+            emg_cols = [c for c in raw_df.columns if 'emg' in c.lower()]
+            raw_df[emg_cols] = raw_df[emg_cols] * 1e6
+        
+        for label_name in label_mapping.keys():
+            viz.plot_unseen_comparison(raw_df, p_num, label_mapping[label_name], label_name, train_dataset)
+
 # Also keep the full one for backward compatibility if needed, or just combine them
 print("Combining for full encoded_df.csv...")
 df_train = pd.read_csv(train_encoded_save_path)

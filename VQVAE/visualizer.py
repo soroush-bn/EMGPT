@@ -219,6 +219,64 @@ class Visualizer:
         plt.close(fig)
         print(f"[Visualizer] Saved {save_path}")
 
+    def plot_unseen_comparison(self, raw_df, participant_id, label_id, label_name, dataset_obj):
+        """
+        Plots Raw vs Preprocessed vs Reconstructed for the last repetition (unseen).
+        Only plots first 4 channels.
+        """
+        self.model.eval()
+        
+        # 1. Get raw segment for this label
+        indices = raw_df.index[raw_df['label'] == label_name].to_numpy()
+        if len(indices) == 0:
+            return
+
+        # Last repetition is the last 4000 samples of the segment
+        final_start = indices[-4000]
+        emg_cols = [c for c in raw_df.columns if 'emg' in c.lower()][:4]
+        raw_vals = raw_df[emg_cols].values
+        raw_seg = raw_vals[final_start : final_start + 4000]
+
+        # 2. Get preprocessed segment (filtered + standardized)
+        # We need to apply the same filtering and standardization as the dataset
+        proc_df = raw_df[emg_cols].copy()
+        proc_df.values[:] = dataset_obj._apply_filters(raw_df[[c for c in raw_df.columns if 'emg' in c.lower()]].values)[:, :4]
+        
+        # Standardize using the dataset's fitted scaler
+        # Dataset scaler was fitted on 8 channels, so we need to be careful
+        full_raw_seg = dataset_obj._apply_filters(raw_df[[c for c in raw_df.columns if 'emg' in c.lower()]].values)[final_start : final_start + 4000]
+        proc_seg_full = dataset_obj.scaler.transform(full_raw_seg)
+        proc_seg = proc_seg_full[:, :4]
+
+        # 3. Get reconstruction
+        inp = torch.tensor(proc_seg_full, dtype=torch.float32).transpose(0, 1).unsqueeze(0).to(self.device)
+        with torch.no_grad():
+            recon, _, _, _ = self.model(inp)
+            recon_seg = recon[0].cpu().numpy()[:4]
+
+        # 4. Plot
+        fig, axes = plt.subplots(4, 3, figsize=(15, 10), sharex='col')
+        t = np.linspace(0, 2.0, 4000)
+        
+        titles = ["Raw Signal", "Preprocessed", "Reconstructed"]
+        for i, tit in enumerate(titles):
+            axes[0, i].set_title(tit, fontweight='bold')
+
+        for ch in range(4):
+            axes[ch, 0].plot(t, raw_seg[:, ch], 'k', alpha=0.7)
+            axes[ch, 1].plot(t, proc_seg[:, ch], '#1f77b4', alpha=0.8)
+            axes[ch, 2].plot(t, recon_seg[ch], '#d62728', alpha=0.8)
+            axes[ch, 0].set_ylabel(f'Ch {ch+1}')
+            for c in range(3): 
+                axes[ch, c].grid(True, alpha=0.2)
+
+        plt.suptitle(f"Participant {participant_id} - {label_name} (Unseen Repetition)", fontsize=16)
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        
+        save_path = os.path.join(self.save_dir, f"unseen_comparison_P{participant_id}_{label_name.replace(' ', '_')}.png")
+        plt.savefig(save_path, bbox_inches='tight')
+        plt.close(fig)
+
     def _is_valid_rep(self, df, start_idx, label_id):
         """Helper to check if a 4000-sample window exists and matches the label."""
         if start_idx + self.SAMPLES_PER_REP >= len(df):
