@@ -62,53 +62,71 @@ assert first_batch.shape == (config['batch_size'], 8, config['window_size']), \
 
 # --- 4. Initialize Model ---
 model = SDformerVQVAE(config).to(device)
-optimizer = torch.optim.AdamW(model.parameters(), lr=float(config['learning_rate']))
-
-# --- 5. Train Model ---
-print("\n--- Starting Training ---")
-model = train_vqvae(model, train_loader, device, optimizer, config)
-
-# --- 6. Save Final Model ---
 model_path = os.path.join(save_dir, "final_model.pth")
-torch.save(model.state_dict(), model_path)
-print(f"Model saved to {model_path}")
+
+# --- 5. Train Model (Resume check) ---
+if os.path.exists(model_path):
+    print(f"\n[SKIP] Found existing model at {model_path}. Loading weights...")
+    model.load_state_dict(torch.load(model_path, map_location=device))
+else:
+    print("\n--- Starting Training ---")
+    optimizer = torch.optim.AdamW(model.parameters(), lr=float(config['learning_rate']))
+    model = train_vqvae(model, train_loader, device, optimizer, config)
+    # --- 6. Save Final Model ---
+    torch.save(model.state_dict(), model_path)
+    print(f"Model saved to {model_path}")
 
 # --- 7. Evaluate Model ---
-print("\n--- Starting Evaluation ---")
-evaluate_model(model, val_loader, device, config)
+metrics_path = os.path.join(save_dir, "evaluation_metrics.yaml")
+if not os.path.exists(metrics_path):
+    print("\n--- Starting Evaluation ---")
+    eval_results = evaluate_model(model, val_loader, device, config)
+    with open(metrics_path, "w") as f:
+        yaml.dump(eval_results, f)
+else:
+    print(f"\n[SKIP] Metrics already exist at {metrics_path}")
 
 # --- 8. Visualization Suite ---
-print("\n--- Generating Diagnostic Plots ---")
-viz = Visualizer(model, device, config)
+# We check for one key plot to decide if we skip standard viz
+if not os.path.exists(os.path.join(save_dir, "figs", "codebook_tsne.png")):
+    print("\n--- Generating Diagnostic Plots ---")
+    viz = Visualizer(model, device, config)
 
-print("1/4. Visualizing Codebook...")
-viz.visualize_codebook()
+    print("1/4. Visualizing Codebook...")
+    viz.visualize_codebook()
 
-print("2/4. Checking Data Distribution...")
-viz.plot_data_distribution(val_loader, num_samples=2000)
+    print("2/4. Checking Data Distribution...")
+    viz.plot_data_distribution(val_loader, num_samples=2000)
 
-print("3/4. Plotting Random Sample Reconstructions...")
-viz.plot_single_reconstruction(val_loader, sample_index=0)
-viz.plot_single_reconstruction(val_loader, sample_index=10)
+    print("3/4. Plotting Random Sample Reconstructions...")
+    viz.plot_single_reconstruction(val_loader, sample_index=0)
+    viz.plot_single_reconstruction(val_loader, sample_index=10)
 
-print("4/4. Tracing Full Gesture Pipeline...")
-# Re-load full dataset for visualization and encoding
-full_dataset = EMGDataset(config, window_size=config['window_size'], stride=config['stride'], split='all')
+    print("4/4. Tracing Full Gesture Pipeline...")
+    # Re-load full dataset for visualization and encoding
+    full_dataset = EMGDataset(config, window_size=config['window_size'], stride=config['stride'], split='all')
 
-gestures = [11, 8, 17] # Power Grip, OK, Rest
-for label_id in gestures:
-    for rep in [0, 4]: # Participant 1 & 2
-        try:
-            viz.plot_gesture_pipeline(full_dataset.df, label_id=label_id, repetition_index=rep)
-        except: pass
+    gestures = [11, 8, 17] # Power Grip, OK, Rest
+    for label_id in gestures:
+        for rep in [0, 4]: # Participant 1 & 2
+            try:
+                viz.plot_gesture_pipeline(full_dataset.df, label_id=label_id, repetition_index=rep)
+            except: pass
+else:
+    print("\n[SKIP] Standard visualizations already exist.")
+    viz = Visualizer(model, device, config) # Still needed for targeted viz below
 
-# --- 9. Generate Encoded Dataset (Codebooks Only) ---
+# --- 9. Generate Encoded Dataset (Tokens) ---
 print("\n--- Generating Encoded Dataset (Tokens) ---")
 encoded_save_path = os.path.join(save_dir, "encoded_df.csv")
 train_encoded_save_path = os.path.join(save_dir, "train_encoded_df.csv")
 unseen_encoded_save_path = os.path.join(save_dir, "unseen_encoded_df.csv")
 
 def encode_and_save(dataset, save_path):
+    if os.path.exists(save_path):
+        print(f"  [SKIP] {os.path.basename(save_path)} already exists.")
+        return
+    
     loader = DataLoader(dataset, batch_size=128, shuffle=False, drop_last=False)
     model.eval()
     all_codes = []
@@ -164,17 +182,8 @@ def encode_and_save(dataset, save_path):
 encode_and_save(train_dataset, train_encoded_save_path)
 encode_and_save(unseen_dataset, unseen_encoded_save_path)
 
-# --- 7. NEW: Final Evaluation and Specific Visualizations ---
-print("\n--- Running Final Evaluation & Targeted Visualizations ---")
-eval_results = evaluate_model(model, val_loader, device, config)
-
-# Save metrics to a YAML file for Phase 1 results
-with open(os.path.join(save_dir, "evaluation_metrics.yaml"), "w") as f:
-    yaml.dump(eval_results, f)
-
 # Targeted Visualizations for P6 and P7
-# participants_list_ids : ["033106b27b","bc4dd952fe","31afab1e30","97c6aaac2d","7037a93026","98aa5fac2d","ecfa481b42","e49db6578f","27f6898a3f","3f858df9cf","9780ed81f4"]
-# Participant 6 is index 5 ("98aa5fac2d"), Participant 7 is index 6 ("ecfa481b42")
+print("\n--- Running Targeted Visualizations for P6/P7 ---")
 target_participants = [
     (6, config['participants_list_ids'][5]), 
     (7, config['participants_list_ids'][6])
@@ -187,11 +196,16 @@ label_mapping = {
 }
 
 for p_num, p_id in target_participants:
+    # Check if we already have comparison plots for this person
+    sample_viz = os.path.join(save_dir, "figs", f"unseen_comparison_P{p_num}_Thumb_Extension.png")
+    if os.path.exists(sample_viz):
+        print(f"  [SKIP] Plots for Participant {p_num} already exist.")
+        continue
+
     print(f"Generating triple-comparison plots for Participant {p_num} ({p_id})...")
     raw_path = os.path.join(config["raw_data_path"], p_id, config["df_raw_name"])
     if os.path.exists(raw_path):
         raw_df = pd.read_csv(raw_path)
-        # Convert units if needed (mirroring dataset.py)
         if 'emg' in config['sensor_type']:
             emg_cols = [c for c in raw_df.columns if 'emg' in c.lower()]
             raw_df[emg_cols] = raw_df[emg_cols] * 1e6
@@ -199,11 +213,14 @@ for p_num, p_id in target_participants:
         for label_name in label_mapping.keys():
             viz.plot_unseen_comparison(raw_df, p_num, label_mapping[label_name], label_name, train_dataset)
 
-# Also keep the full one for backward compatibility if needed, or just combine them
-print("Combining for full encoded_df.csv...")
-df_train = pd.read_csv(train_encoded_save_path)
-df_unseen = pd.read_csv(unseen_encoded_save_path)
-df_full = pd.concat([df_train, df_unseen], ignore_index=True)
-df_full.to_csv(encoded_save_path, index=False)
+# Combine for full encoded_df.csv if missing
+if not os.path.exists(encoded_save_path):
+    print("Combining for full encoded_df.csv...")
+    df_train = pd.read_csv(train_encoded_save_path)
+    df_unseen = pd.read_csv(unseen_encoded_save_path)
+    df_full = pd.concat([df_train, df_unseen], ignore_index=True)
+    df_full.to_csv(encoded_save_path, index=False)
+else:
+    print(f"[SKIP] Full encoded dataset already exists at {encoded_save_path}")
 
 print(f"\nPipeline Completed Successfully! All results in: {save_dir}")

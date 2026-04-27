@@ -120,9 +120,9 @@ class EMGDataset(Dataset):
         
         # Fit scaler ONLY on train data
         print("Fitting Global StandardScaler on Train Split...")
-        scaler = StandardScaler()
+        self.scaler = StandardScaler()
         emg_cols = [c for c in train_df.columns if 'emg' in c.lower()]
-        scaler.fit(train_df[emg_cols].values)
+        self.scaler.fit(train_df[emg_cols].values)
         
         # Select target df
         if self.split == 'train':
@@ -136,7 +136,7 @@ class EMGDataset(Dataset):
         if len(target_df) == 0:
             return torch.tensor([], dtype=torch.float32)
             
-        np_data = scaler.transform(target_df[emg_cols].values)
+        np_data = self.scaler.transform(target_df[emg_cols].values)
         return torch.tensor(np_data, dtype=torch.float32)
 
 
