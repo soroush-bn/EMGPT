@@ -9,15 +9,15 @@ export TR_CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/model_small.yam
 # ------------------------------
 
 # 1. Train VQ-VAE (Phase 1)
-JOB1_CMD="bsub -env \"CONFIG=$VQ_CONFIG\" -J replicate_vqvae -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < train_vqvae.lsf"
-echo "Submitting Stage 1: VQ-VAE Training..."
-JOB1_OUT=$(eval $JOB1_CMD)
-JOB1_ID=$(echo $JOB1_OUT | grep -oP '(?<=Job <)\d+(?=>)')
-echo "Stage 1 submitted with ID: $JOB1_ID"
+# JOB1_CMD="bsub -env \"CONFIG=$VQ_CONFIG\" -J replicate_vqvae -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < train_vqvae.lsf"
+# echo "Submitting Stage 1: VQ-VAE Training..."
+# JOB1_OUT=$(eval $JOB1_CMD)
+# JOB1_ID=$(echo $JOB1_OUT | grep -oP '(?<=Job <)\d+(?=>)')
+# echo "Stage 1 submitted with ID: $JOB1_ID"
 
 # 2. Train Gesture Transformer (Phase 2)
 # Added -w "done($JOB1_ID)" so it waits for Phase 1 to generate the encoded data
-JOB2_CMD="bsub -w \"done($JOB1_ID)\" -env \"CONFIG=$TR_CONFIG\" -J replicate_run -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < encoded_run.lsf"
+JOB2_CMD="bsub  -env \"CONFIG=$TR_CONFIG\" -J replicate_run -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < encoded_run.lsf"
 echo "Submitting Stage 2: Transformer Training (waiting for $JOB1_ID)..."
 JOB2_OUT=$(eval $JOB2_CMD)
 JOB2_ID=$(echo $JOB2_OUT | grep -oP '(?<=Job <)\d+(?=>)')
