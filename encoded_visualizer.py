@@ -99,25 +99,33 @@ if __name__ == "__main__":
     # 3. Decode the generated tokens back to continuous signals
     print(f"\n--- Starting Decoding Process for {exp_name} ---")
     
-    # Prioritize 'unseen_synthetic' files
-    sample_file = os.path.join(save_dir, "unseen_synthetic_df_5_70.csv") 
-    if not os.path.exists(sample_file):
-        # Try generic unseen sample file
-        sample_file = os.path.join(save_dir, "unseen_synthetic_encoded_samples.csv")
+    # Search Priority:
+    # 1. 'seen_synthetic_df' (latest generation naming)
+    # 2. 'unseen_synthetic' (older generation naming)
+    # 3. 'synthetic_df' (fallback)
+    
+    sample_file = None
+    
+    # Try seen_synthetic_df patterns
+    potential_seen = sorted([f for f in os.listdir(save_dir) if f.startswith("seen_synthetic_df_") and f.endswith(".csv")], reverse=True)
+    if potential_seen:
+        # Prefer the 25_50 ratio for visualization if available, otherwise just the first one
+        favored = "seen_synthetic_df_25_50.csv"
+        sample_file = os.path.join(save_dir, favored if favored in potential_seen else potential_seen[0])
         
-    if not os.path.exists(sample_file):
-        # Fallback to any unseen synthetic file
-        synth_files = sorted([f for f in os.listdir(save_dir) if f.startswith("unseen_synthetic_")], reverse=True)
-        if synth_files:
-            sample_file = os.path.join(save_dir, synth_files[0])
+    if not sample_file or not os.path.exists(sample_file):
+        # Try unseen_synthetic patterns
+        potential_unseen = sorted([f for f in os.listdir(save_dir) if f.startswith("unseen_synthetic_") and f.endswith(".csv")], reverse=True)
+        if potential_unseen:
+            sample_file = os.path.join(save_dir, potential_unseen[0])
             
-    if not os.path.exists(sample_file):
-        # Last resort fallback to old naming
-        synth_files = sorted([f for f in os.listdir(save_dir) if f.startswith("synthetic_df_")], reverse=True)
-        if synth_files:
-            sample_file = os.path.join(save_dir, synth_files[0])
+    if not sample_file or not os.path.exists(sample_file):
+        # Try old generic synthetic_df patterns
+        potential_old = sorted([f for f in os.listdir(save_dir) if f.startswith("synthetic_df_") and f.endswith(".csv")], reverse=True)
+        if potential_old:
+            sample_file = os.path.join(save_dir, potential_old[0])
 
-    if os.path.exists(sample_file):
+    if sample_file and os.path.exists(sample_file):
         print(f"Processing tokens from: {sample_file}")
         raw_signals, labels = decoder.decode_dataset(
             csv_path=sample_file,
