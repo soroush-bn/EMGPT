@@ -115,15 +115,16 @@ class Visualizer:
         plt.savefig(os.path.join(self.save_dir, f"single_recon_sample_{sample_index}.png"), bbox_inches='tight')
         plt.close(fig)
 
-    def plot_gesture_pipeline(self, df, label_id, repetition_index=0):
+    def plot_gesture_pipeline(self, df, label_id, dataset_obj, repetition_index=0):
         """
         Saves 'pipeline_trace_label_{id}_rep_{rep}.png'.
-        Finds the exact repetition based on known structure (4000 samples/rep).
+        Logic is identical to plot_unseen_comparison.
         
         Args:
             df: The dataframe with 'gt' and 'emg' columns.
             label_id: The integer label to find (e.g., 11).
-            repetition_index: Which repetition to plot (0=1st rep of P1, 4=1st rep of P2, etc.)
+            dataset_obj: The EMGDataset object containing filters and scaler.
+            repetition_index: Which repetition to plot.
         """
         self.model.eval()
         
@@ -139,37 +140,18 @@ class Visualizer:
             return
 
         # 2. Group indices into contiguous blocks
-        # A "break" is where index jumps by more than 1
         breaks = np.where(np.diff(indices) > 1)[0]
-        # Start points of blocks: [index[0], index[break+1], ...]
         block_starts = [indices[0]] + [indices[i+1] for i in breaks]
         
         # 3. Find valid repetitions within these blocks
-        # We know each repetition is 4000 samples.
         valid_starts = []
-        
         for start_idx in block_starts:
-            # How long is this contiguous block?
-            # We find the end of this specific block
-            # (In a simpler way: just check forward from start_idx)
-            
-            # Since we know the structure is rigid (4 reps of 2s), 
-            # we can just blindly assume the block contains N valid repetitions 
-            # provided the data exists in the dataframe.
-            
-            # Check 1st Rep in block
             if self._is_valid_rep(df, start_idx, label_id):
                 valid_starts.append(start_idx)
-            
-            # Check 2nd Rep (start + 4000)
             if self._is_valid_rep(df, start_idx + self.SAMPLES_PER_REP, label_id):
                 valid_starts.append(start_idx + self.SAMPLES_PER_REP)
-                
-            # Check 3rd Rep
             if self._is_valid_rep(df, start_idx + 2*self.SAMPLES_PER_REP, label_id):
                 valid_starts.append(start_idx + 2*self.SAMPLES_PER_REP)
-                
-            # Check 4th Rep
             if self._is_valid_rep(df, start_idx + 3*self.SAMPLES_PER_REP, label_id):
                 valid_starts.append(start_idx + 3*self.SAMPLES_PER_REP)
 
@@ -183,14 +165,13 @@ class Visualizer:
         # --- Process & Plot ---
         emg_cols = [c for c in df.columns if 'emg' in c.lower()]
         raw_vals = df[emg_cols].values
-        
         raw_seg = raw_vals[final_start : final_start + self.SAMPLES_PER_REP]
         
-        scaler = StandardScaler()
-        scaler.fit(raw_vals) # Global fit
-        proc_seg = scaler.transform(raw_seg)
+        # Apply the same logic as training/unseen: Filter -> Scale
+        full_filtered = dataset_obj._apply_filters(raw_vals)
+        proc_seg_full = dataset_obj.scaler.transform(full_filtered[final_start : final_start + self.SAMPLES_PER_REP])
         
-        inp = torch.tensor(proc_seg, dtype=torch.float32).transpose(0, 1).unsqueeze(0).to(self.device)
+        inp = torch.tensor(proc_seg_full, dtype=torch.float32).transpose(0, 1).unsqueeze(0).to(self.device)
         
         with torch.no_grad():
             recon, _, _, _ = self.model(inp)
@@ -203,12 +184,12 @@ class Visualizer:
         for i, tit in enumerate(titles): axes[0, i].set_title(tit, fontweight='bold')
 
         for ch in range(8):
-            axes[ch, 0].plot(t, raw_seg[:, ch], 'k', alpha=0.7)
-            axes[ch, 1].plot(t, proc_seg[:, ch], '#1f77b4', alpha=0.8)
-            axes[ch, 2].plot(t, recon_seg[ch], '#d62728', alpha=0.8)
+            axes[ch, 0].plot(t, raw_seg[:, ch], color='#335067', alpha=0.7)
+            axes[ch, 1].plot(t, proc_seg_full[:, ch], color='#054984', alpha=0.8)
+            axes[ch, 2].plot(t, recon_seg[ch], color='#054984', alpha=0.9, linestyle='--')
             axes[ch, 0].set_ylabel(f'Ch {ch+1}')
             for c in range(3): 
-                axes[ch, c].grid(True, alpha=0.2)
+                axes[ch, c].grid(True, alpha=0.15)
                 axes[ch, c].spines['top'].set_visible(False)
                 axes[ch, c].spines['right'].set_visible(False)
 
@@ -222,60 +203,58 @@ class Visualizer:
     def plot_unseen_comparison(self, raw_df, participant_id, label_id, label_name, dataset_obj):
         """
         Plots Raw vs Preprocessed vs Reconstructed for the last repetition (unseen).
-        Only plots first 4 channels.
+        Follows the same style as plot_gesture_pipeline.
         """
         self.model.eval()
         
         # 1. Get raw segment for this label
         indices = raw_df.index[raw_df['label'] == label_name].to_numpy()
-        if len(indices) == 0:
+        if len(indices) < self.SAMPLES_PER_REP:
             return
 
         # Last repetition is the last 4000 samples of the segment
-        final_start = indices[-4000]
-        emg_cols = [c for c in raw_df.columns if 'emg' in c.lower()][:4]
+        final_start = indices[-self.SAMPLES_PER_REP]
+        emg_cols = [c for c in raw_df.columns if 'emg' in c.lower()]
         raw_vals = raw_df[emg_cols].values
-        raw_seg = raw_vals[final_start : final_start + 4000]
+        raw_seg = raw_vals[final_start : final_start + self.SAMPLES_PER_REP]
 
         # 2. Get preprocessed segment (filtered + standardized)
         # We need to apply the same filtering and standardization as the dataset
-        proc_df = raw_df[emg_cols].copy()
-        proc_df.values[:] = dataset_obj._apply_filters(raw_df[[c for c in raw_df.columns if 'emg' in c.lower()]].values)[:, :4]
-        
-        # Standardize using the dataset's fitted scaler
-        # Dataset scaler was fitted on 8 channels, so we need to be careful
-        full_raw_seg = dataset_obj._apply_filters(raw_df[[c for c in raw_df.columns if 'emg' in c.lower()]].values)[final_start : final_start + 4000]
-        proc_seg_full = dataset_obj.scaler.transform(full_raw_seg)
-        proc_seg = proc_seg_full[:, :4]
+        full_filtered = dataset_obj._apply_filters(raw_vals)
+        proc_seg_full = dataset_obj.scaler.transform(full_filtered[final_start : final_start + self.SAMPLES_PER_REP])
 
         # 3. Get reconstruction
         inp = torch.tensor(proc_seg_full, dtype=torch.float32).transpose(0, 1).unsqueeze(0).to(self.device)
         with torch.no_grad():
             recon, _, _, _ = self.model(inp)
-            recon_seg = recon[0].cpu().numpy()[:4]
+            recon_seg = recon[0].cpu().numpy()
 
         # 4. Plot
-        fig, axes = plt.subplots(4, 3, figsize=(15, 10), sharex='col')
-        t = np.linspace(0, 2.0, 4000)
+        fig, axes = plt.subplots(8, 3, figsize=(18, 12), sharex='col')
+        t = np.linspace(0, self.REP_DURATION_SEC, self.SAMPLES_PER_REP)
         
-        titles = ["Raw Signal", "Preprocessed", "Reconstructed"]
+        titles = [f"Raw (Label {label_id})", "Preprocessed", "Reconstruction"]
         for i, tit in enumerate(titles):
             axes[0, i].set_title(tit, fontweight='bold')
 
-        for ch in range(4):
-            axes[ch, 0].plot(t, raw_seg[:, ch], 'k', alpha=0.7)
-            axes[ch, 1].plot(t, proc_seg[:, ch], '#1f77b4', alpha=0.8)
-            axes[ch, 2].plot(t, recon_seg[ch], '#d62728', alpha=0.8)
+        for ch in range(8):
+            axes[ch, 0].plot(t, raw_seg[:, ch], color='#335067', alpha=0.7)
+            axes[ch, 1].plot(t, proc_seg_full[:, ch], color='#054984', alpha=0.8)
+            axes[ch, 2].plot(t, recon_seg[ch], color='#054984', alpha=0.9, linestyle='--')
             axes[ch, 0].set_ylabel(f'Ch {ch+1}')
             for c in range(3): 
-                axes[ch, c].grid(True, alpha=0.2)
+                axes[ch, c].grid(True, alpha=0.15)
+                axes[ch, c].spines['top'].set_visible(False)
+                axes[ch, c].spines['right'].set_visible(False)
 
         plt.suptitle(f"Participant {participant_id} - {label_name} (Unseen Repetition)", fontsize=16)
+        axes[7, 1].set_xlabel("Time (s)")
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         
         save_path = os.path.join(self.save_dir, f"unseen_comparison_P{participant_id}_{label_name.replace(' ', '_')}.png")
         plt.savefig(save_path, bbox_inches='tight')
         plt.close(fig)
+        print(f"[Visualizer] Saved {save_path}")
 
     def _is_valid_rep(self, df, start_idx, label_id):
         """Helper to check if a 4000-sample window exists and matches the label."""

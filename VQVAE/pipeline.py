@@ -110,7 +110,7 @@ if not os.path.exists(os.path.join(save_dir, "figs", "codebook_tsne.png")):
     for label_id in gestures:
         for rep in [0, 4]: # Participant 1 & 2
             try:
-                viz.plot_gesture_pipeline(full_dataset.df, label_id=label_id, repetition_index=rep)
+                viz.plot_gesture_pipeline(full_dataset.df, label_id=label_id, dataset_obj=full_dataset, repetition_index=rep)
             except: pass
 else:
     print("\n[SKIP] Standard visualizations already exist.")

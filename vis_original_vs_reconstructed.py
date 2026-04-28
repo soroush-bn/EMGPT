@@ -80,21 +80,25 @@ def visualize_gesture_reconstruction(original_path, reconstructed_path, save_dir
                 orig_segment = df_orig.iloc[start:actual_end][sensor_to_plot].values
                 recon_segment = df_recon.iloc[start:actual_end][sensor_to_plot].values
 
-                axes[r_idx, 0].plot(orig_segment, color='steelblue', lw=1.5)
+                # Use color-blind friendly blue shades
+                axes[r_idx, 0].plot(orig_segment, color='#335067', lw=1.5, alpha=0.7)
                 axes[r_idx, 0].set_ylabel(f"Seg {r_idx + 1}", fontweight='bold')
                 if r_idx == 0:
-                    axes[r_idx, 0].set_title("Original Data", fontsize=14)
+                    axes[r_idx, 0].set_title("Original Data", fontsize=14, fontweight='bold', color='#335067')
                 
                 if len(recon_segment) > 0:
-                    axes[r_idx, 1].plot(recon_segment, color='indianred', lw=1.5)
+                    axes[r_idx, 1].plot(recon_segment, color='#054984', lw=1.5, alpha=0.8)
                 else:
                     axes[r_idx, 1].text(0.5, 0.5, "No Reconstructed Data", ha='center')
                     
                 if r_idx == 0:
-                    axes[r_idx, 1].set_title("Reconstructed Data", fontsize=14)
+                    axes[r_idx, 1].set_title("Reconstructed Data", fontsize=14, fontweight='bold', color='#054984')
                 
-                axes[r_idx, 0].grid(alpha=0.3)
-                axes[r_idx, 1].grid(alpha=0.3)
+                axes[r_idx, 0].grid(alpha=0.15)
+                axes[r_idx, 1].grid(alpha=0.15)
+                for ax in axes[r_idx]:
+                    ax.spines['top'].set_visible(False)
+                    ax.spines['right'].set_visible(False)
 
             plt.tight_layout(rect=[0, 0.03, 1, 0.95])
             
@@ -174,9 +178,11 @@ def visualize_ratio_comparison(vq_config, tr_config, save_dir):
                 start = rep_starts[r]
                 # Convert units to match preprocessed scale (approx)
                 seg = df_raw.iloc[start : start + 4000][sensor_to_plot].values * 1e6
-                axes[0, r].plot(seg, color='black', alpha=0.7)
-                axes[0, r].set_title(f"Original Rep {r+1}", fontweight='bold')
-            axes[0, r].grid(alpha=0.2)
+                axes[0, r].plot(seg, color='#335067', alpha=0.7, lw=1.5)
+                axes[0, r].set_title(f"Original Rep {r+1}", fontweight='bold', color='#335067')
+            axes[0, r].grid(alpha=0.15)
+            axes[0, r].spines['top'].set_visible(False)
+            axes[0, r].spines['right'].set_visible(False)
         
         # --- ROWS 1+: RECONSTRUCTIONS ---
         for row_idx, ratio in enumerate(ratios):
@@ -188,23 +194,10 @@ def visualize_ratio_comparison(vq_config, tr_config, save_dir):
             df_recon['block_id'] = df_recon['change'].cumsum()
             
             # Find the blocks for our target gesture
-            # Map name to ID using standard mapping or look it up
-            # Since we have 'gt' in df_recon, let's find the ID corresponding to first_gesture_name
-            # Wait, df_raw has name, df_recon has gt (ID).
-            # Let's find the ID from the first segment we found in df_raw if possible
-            # Or just use the fact that they are aligned.
+            target_blocks = df_recon[df_recon['gt'] != -1].groupby('block_id') 
             
-            target_blocks = df_recon[df_recon['gt'] != -1].groupby('block_id') # -1 or whatever rest is
-            # Actually, let's just use indices since it's easier
-            # In the pipeline, participant N starts at a specific offset.
-            # But simpler: just find the first few blocks in df_recon.
-            
-            # For simplicity in this visualization, we'll assume the first 3 segments 
-            # in df_recon belonging to any participant are what we want to compare.
-            # (In a rigorous setup we'd filter by participant ID if it were in df_recon)
-            
-            # Let's just find all segments of the first occurring gesture ID in df_recon
-            target_id = df_recon['gt'].iloc[0] # Very rough heuristic
+            # Find all segments of the first occurring gesture ID in df_recon
+            target_id = df_recon['gt'].iloc[0] 
             indices_recon = df_recon.index[df_recon['gt'] == target_id].to_numpy()
             breaks_recon = np.where(np.diff(indices_recon) > 1)[0]
             rep_starts_recon = [indices_recon[0]] + [indices_recon[i+1] for i in breaks_recon]
@@ -212,15 +205,13 @@ def visualize_ratio_comparison(vq_config, tr_config, save_dir):
             for r in range(3):
                 if r < len(rep_starts_recon):
                     start_r = rep_starts_recon[r]
-                    # How long is a rep in recon? If stride was 30 and window 300, 
-                    # 4000 samples raw -> ~133 windows -> ~4000 samples recon?
-                    # The reconstruct_pipeline script keeps 'stride' samples per window.
-                    # So length should match.
                     seg_recon = df_recon.iloc[start_r : start_r + 4000][sensor_to_plot].values
-                    axes[row_idx+1, r].plot(seg_recon, color='red', alpha=0.8)
+                    axes[row_idx+1, r].plot(seg_recon, color='#054984', alpha=0.8, lw=1.5)
                     if r == 0:
-                        axes[row_idx+1, r].set_ylabel(f"Ratio {ratio}", fontweight='bold', fontsize=12)
-                axes[row_idx+1, r].grid(alpha=0.2)
+                        axes[row_idx+1, r].set_ylabel(f"Ratio {ratio}", fontweight='bold', fontsize=12, color='#054984')
+                axes[row_idx+1, r].grid(alpha=0.15)
+                axes[row_idx+1, r].spines['top'].set_visible(False)
+                axes[row_idx+1, r].spines['right'].set_visible(False)
 
         fig.suptitle(f"Participant {p_num} ({p_id}) | Gesture: {first_gesture_name}\nTop: Raw | Bottom: Reconstructions by Prompt Ratio", fontsize=16)
         save_path = os.path.join(save_dir, f"ratio_comparison_P{p_num}.png")

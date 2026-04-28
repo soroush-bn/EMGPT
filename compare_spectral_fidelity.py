@@ -50,59 +50,44 @@ def run_fidelity_check(config_path, vq_config_path):
     
     results = []
 
-    # --- Analysis 1: Statistical Distribution (RMS/MAV) ---
-    print("Analyzing Statistical Distribution...")
-    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+    # --- 1. Global Fidelity Plots (Individual Files) ---
+    print("Generating Global Spectral Fidelity plots...")
     
-    all_rms = {"Baseline": []}
-    for r in ratios: all_rms[r] = []
-
-    # Sample RMS across the dataset
-    # We'll take chunks of 300 samples (window size)
-    ws = 300
-    for i in range(0, len(df_base)-ws, ws):
-        chunk = df_base[feature_cols].iloc[i:i+ws].values
-        rms, _ = calculate_features(chunk)
-        all_rms["Baseline"].append(np.mean(rms))
-
-    for r, path in recon_files.items():
-        if os.path.exists(path):
-            df_r = pd.read_csv(path)
-            for i in range(0, len(df_r)-ws, ws):
-                chunk = df_r[feature_cols].iloc[i:i+ws].values
-                rms, _ = calculate_features(chunk)
-                all_rms[r].append(np.mean(rms))
-
-    # Plot Boxplots
-    axes[0].boxplot([all_rms[k] for k in all_rms.keys() if all_rms[k]], labels=[k for k in all_rms.keys() if all_rms[k]])
-    axes[0].set_title("RMS Amplitude Distribution")
-    axes[0].set_ylabel("RMS Value")
-    axes[0].grid(alpha=0.2)
-
-    # --- Analysis 2: Spectral Fidelity (PSD) ---
-    print("Analyzing Spectral Fidelity...")
+    # Calculate baseline PSD once
     f_base, p_base = get_psd(df_base[feature_cols].values)
-    axes[1].semilogy(f_base, p_base, label="Baseline (Real)", color='black', lw=2)
     
-    colors = plt.cm.viridis(np.linspace(0, 1, len(ratios)))
-    for i, (r, path) in enumerate(recon_files.items()):
+    # A. Baseline Only Plot
+    plt.figure(figsize=(10, 6))
+    plt.semilogy(f_base, p_base, label="Baseline (Real)", color='#335067', lw=2)
+    plt.title("Global Fidelity: Baseline Power Spectral Density (PSD)", fontsize=14, fontweight='bold')
+    plt.xlabel("Frequency (Hz)")
+    plt.ylabel("Power/Frequency (dB/Hz)")
+    plt.legend()
+    plt.grid(alpha=0.15)
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_dir, "global_fidelity_baseline.png"), dpi=200)
+    plt.close()
+
+    # B. Individual Ratio Plots (Comparison against Baseline)
+    for i, (r_name, path) in enumerate(recon_files.items()):
         if os.path.exists(path):
             df_r = pd.read_csv(path)
             f_r, p_r = get_psd(df_r[feature_cols].values)
-            axes[1].semilogy(f_r, p_r, label=f"Ratio {r}", color=colors[i], alpha=0.8)
+            
+            plt.figure(figsize=(10, 6))
+            plt.semilogy(f_base, p_base, label="Baseline (Real)", color='#335067', lw=1.5, alpha=0.5)
+            plt.semilogy(f_r, p_r, label=f"Synthetic Ratio {r_name}", color='#054984', lw=2)
+            
+            plt.title(f"Global Fidelity: Ratio {r_name} vs Baseline PSD", fontsize=14, fontweight='bold')
+            plt.xlabel("Frequency (Hz)")
+            plt.ylabel("Power/Frequency (dB/Hz)")
+            plt.legend()
+            plt.grid(alpha=0.15)
+            plt.tight_layout()
+            plt.savefig(os.path.join(save_dir, f"global_fidelity_ratio_{r_name}.png"), dpi=200)
+            plt.close()
 
-    axes[1].set_title("Power Spectral Density (PSD) Comparison")
-    axes[1].set_xlabel("Frequency (Hz)")
-    axes[1].set_ylabel("Power/Frequency (dB/Hz)")
-    axes[1].legend()
-    axes[1].grid(alpha=0.2)
-
-    plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, "global_fidelity_metrics.png"), dpi=200)
-    plt.close()
-
-    # --- Analysis 3: Targeted Frequency Comparison for P6 & P7 ---
-    # (Similar to vis_original_vs_reconstructed but in freq domain)
+    # --- 2. Targeted Frequency Comparison for P6 & P7 (Individual Files) ---
     participants = [
         (6, vq_config['participants_list_ids'][5]),
         (7, vq_config['participants_list_ids'][6])
@@ -121,24 +106,26 @@ def run_fidelity_check(config_path, vq_config_path):
         breaks = np.where(np.diff(indices) > 1)[0]
         rep_starts = [indices[0]] + [indices[i+1] for i in breaks]
         
-        # Setup Figure
-        n_rows = 1 + len(ratios)
-        fig, axes = plt.subplots(n_rows, 3, figsize=(18, 4 * n_rows))
-        plt.subplots_adjust(hspace=0.4)
-        
-        sensor_col = feature_cols[0] # Plot first channel PSD
+        sensor_col = feature_cols[0]
 
-        # Row 0: Raw Spectral (First 3 Reps)
+        # A. Baseline for Participant
+        fig, axes = plt.subplots(1, 3, figsize=(18, 5))
         for r in range(3):
             if r < len(rep_starts):
                 seg = df_raw.iloc[rep_starts[r]:rep_starts[r]+4000][sensor_col].values * 1e6
                 f, pxx = welch(seg, fs=2000, nperseg=256)
-                axes[0, r].semilogy(f, pxx, color='black')
-                axes[0, r].set_title(f"Original Rep {r+1} PSD", fontweight='bold')
-            axes[0, r].grid(alpha=0.2)
+                axes[r].semilogy(f, pxx, color='#335067', lw=1.5)
+                axes[r].set_title(f"Original Rep {r+1} PSD", fontweight='bold')
+                axes[r].set_xlabel("Frequency (Hz)")
+                axes[r].set_ylabel("dB/Hz")
+            axes[r].grid(alpha=0.15)
+        fig.suptitle(f"P{p_num} Baseline Spectral Analysis | Gesture: {first_g}", fontsize=16)
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        plt.savefig(os.path.join(save_dir, f"spectral_P{p_num}_baseline.png"))
+        plt.close()
 
-        # Rows 1+: Reconstruction Spectral
-        for row_idx, r_name in enumerate(ratios):
+        # B. Ratios for Participant
+        for r_name in ratios:
             r_path = recon_files[r_name]
             if not os.path.exists(r_path): continue
             df_r = pd.read_csv(r_path)
@@ -148,18 +135,20 @@ def run_fidelity_check(config_path, vq_config_path):
             breaks_r = np.where(np.diff(indices_r) > 1)[0]
             rep_starts_r = [indices_r[0]] + [indices_r[i+1] for i in breaks_r]
             
+            fig, axes = plt.subplots(1, 3, figsize=(18, 5))
             for r in range(3):
                 if r < len(rep_starts_r):
                     seg_r = df_r.iloc[rep_starts_r[r]:rep_starts_r[r]+4000][sensor_col].values
                     f, pxx = welch(seg_r, fs=2000, nperseg=256)
-                    axes[row_idx+1, r].semilogy(f, pxx, color='red')
-                    if r == 0:
-                        axes[row_idx+1, r].set_ylabel(f"Ratio {r_name} PSD", fontweight='bold')
-                axes[row_idx+1, r].grid(alpha=0.2)
-
-        fig.suptitle(f"Spectral Comparison P{p_num} | Gesture: {first_g}", fontsize=16)
-        plt.savefig(os.path.join(save_dir, f"spectral_fidelity_P{p_num}.png"), bbox_inches='tight')
-        plt.close(fig)
+                    axes[r].semilogy(f, pxx, color='#054984', lw=2)
+                    axes[r].set_title(f"Synthetic Ratio {r_name} Rep {r+1} PSD", fontweight='bold')
+                    axes[r].set_xlabel("Frequency (Hz)")
+                    axes[r].set_ylabel("dB/Hz")
+                axes[r].grid(alpha=0.15)
+            fig.suptitle(f"P{p_num} Ratio {r_name} Spectral Analysis | Gesture: {first_g}", fontsize=16)
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+            plt.savefig(os.path.join(save_dir, f"spectral_P{p_num}_ratio_{r_name}.png"))
+            plt.close()
 
     print(f"Fidelity reports saved in {save_dir}")
 

@@ -81,18 +81,30 @@ def compare_real_vs_synthetic(config_path, vq_config_path, participant_idx=0):
                 synth_tokens = synth_sample[token_cols].values
                 synth_signal = decoder.decode_window(synth_tokens)[0]
 
+                # Define a color-blind friendly blue palette
+                blue_palette = [
+                    '#054984', '#335067', '#0072b2', '#56b4e9', 
+                    '#009e73', '#004d40', '#1a237e', '#3f51b5'
+                ]
+
                 # Plot Real (Left)
                 for c in range(real_signal.shape[1]):
-                    axes[i, 0].plot(real_signal[:, c], alpha=0.7, label=f"Ch {c}" if i==0 else "")
-                axes[i, 0].set_title(f"Real (Reconstructed) | Gesture {gesture_id}", fontweight='bold')
+                    color = blue_palette[c % len(blue_palette)]
+                    axes[i, 0].plot(real_signal[:, c], color=color, alpha=0.7, label=f"Ch {c+1}" if i==0 else "")
+                axes[i, 0].set_title(f"Real (Reconstructed) | Gesture {gesture_id}", fontweight='bold', color='#335067')
                 axes[i, 0].set_ylabel(f"Ratio {ratio}\nAmplitude")
-                axes[i, 0].grid(alpha=0.3)
+                axes[i, 0].grid(alpha=0.15)
+                axes[i, 0].spines['top'].set_visible(False)
+                axes[i, 0].spines['right'].set_visible(False)
 
                 # Plot Synthetic (Right)
                 for c in range(synth_signal.shape[1]):
-                    axes[i, 1].plot(synth_signal[:, c], alpha=0.7)
-                axes[i, 1].set_title(f"Synthetic (Ratio {ratio}) | Gesture {gesture_id}", fontweight='bold')
-                axes[i, 1].grid(alpha=0.3)
+                    color = blue_palette[c % len(blue_palette)]
+                    axes[i, 1].plot(synth_signal[:, c], color=color, alpha=0.7)
+                axes[i, 1].set_title(f"Synthetic (Ratio {ratio}) | Gesture {gesture_id}", fontweight='bold', color='#054984')
+                axes[i, 1].grid(alpha=0.15)
+                axes[i, 1].spines['top'].set_visible(False)
+                axes[i, 1].spines['right'].set_visible(False)
 
         if i == 0:
             axes[0, 0].legend(loc='upper right', fontsize='small')

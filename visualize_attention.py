@@ -76,9 +76,11 @@ def visualize_attention(config_path, vqvae_config_path, model_path, layer_to_viz
     # 4. Load a sample from Validation Set
     val_data_path = config.get('val_data_path')
     dataset = EncodedEMGDataset(csv_files=[val_data_path])
-    X, Y, label = dataset[sample_idx]
-    X = X.unsqueeze(0).to(device) # Add batch dim
-    label = torch.tensor([label]).to(device)
+    
+    # Use the full token sequence (all columns) instead of truncated training version
+    full_seq = dataset.tokens[sample_idx]
+    X = torch.tensor(full_seq, dtype=torch.long).unsqueeze(0).to(device)
+    label = torch.tensor([dataset.labels[sample_idx]]).to(device)
 
     # 5. Forward Pass
     with torch.no_grad():
@@ -93,11 +95,20 @@ def visualize_attention(config_path, vqvae_config_path, model_path, layer_to_viz
         decoder = VQVAESignalDecoder(vqvae_model_path=vq_ckpt, vqvae_config=vqvae_config)
         recon_input = decoder.decode_window(X)[0] # (Time, Channels)
         
+        # Define a color-blind friendly blue palette
+        blue_palette = [
+            '#054984', '#335067', '#0072b2', '#56b4e9', 
+            '#009e73', '#004d40', '#1a237e', '#3f51b5'
+        ]
+
         fig_inp, ax_inp = plt.subplots(figsize=(10, 4))
         for c in range(recon_input.shape[1]):
-            ax_inp.plot(recon_input[:, c], alpha=0.7)
-        ax_inp.set_title(f"Reconstructed Input Signal (Sample {sample_idx} | Label {label.item()})")
-        ax_inp.grid(alpha=0.3)
+            color = blue_palette[c % len(blue_palette)]
+            ax_inp.plot(recon_input[:, c], color=color, alpha=0.7, lw=1.2)
+        ax_inp.set_title(f"Reconstructed Input Signal (Sample {sample_idx} | Label {label.item()})", fontweight='bold', color='#335067')
+        ax_inp.grid(alpha=0.15)
+        ax_inp.spines['top'].set_visible(False)
+        ax_inp.spines['right'].set_visible(False)
         plt.savefig(os.path.join(save_dir, f"input_signal_sample_{sample_idx}.png"))
         plt.close(fig_inp)
         print(f"Saved reconstructed input signal to {save_dir}")
@@ -115,12 +126,12 @@ def visualize_attention(config_path, vqvae_config_path, model_path, layer_to_viz
     rows = int(np.ceil(heads_to_plot / cols))
     
     fig, axes = plt.subplots(rows, cols, figsize=(20, 5 * rows))
-    fig.suptitle(f"Layer {layer_to_viz} Attention Heads | Gesture {label.item()} | Sample {sample_idx}", fontsize=20)
+    fig.suptitle(f"Layer {layer_to_viz} Attention Heads | Gesture {label.item()} | Sample {sample_idx}", fontsize=20, fontweight='bold', color='#335067')
     axes = axes.flatten()
 
     for i in range(heads_to_plot):
-        sns.heatmap(weights[i], ax=axes[i], cmap='viridis', cbar=False)
-        axes[i].set_title(f"Head {i}")
+        sns.heatmap(weights[i], ax=axes[i], cmap='Blues', cbar=False)
+        axes[i].set_title(f"Head {i}", fontweight='bold', color='#054984')
         axes[i].set_xlabel("Key Position")
         axes[i].set_ylabel("Query Position")
 

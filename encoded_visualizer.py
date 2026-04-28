@@ -29,6 +29,12 @@ def plot_synthetic_signals(signals, labels, save_path, max_plots=9):
     fig, axes = plt.subplots(rows, cols, figsize=(15, 3 * rows), squeeze=False)
     axes = axes.flatten()
     
+    # Define a color-blind friendly blue palette
+    blue_palette = [
+        '#054984', '#335067', '#0072b2', '#56b4e9', 
+        '#009e73', '#004d40', '#1a237e', '#3f51b5'
+    ]
+    
     for i in range(num_samples):
         if i >= num_samples: break
         ax = axes[i]
@@ -38,12 +44,13 @@ def plot_synthetic_signals(signals, labels, save_path, max_plots=9):
         # Plot each channel
         num_channels = signal.shape[1]
         for c in range(num_channels):
-            ax.plot(signal[:, c], label=f'Ch {c+1}', alpha=0.8, linewidth=1.5)
+            color = blue_palette[c % len(blue_palette)]
+            ax.plot(signal[:, c], label=f'Ch {c+1}', color=color, alpha=0.8, linewidth=1.2)
             
-        ax.set_title(f"Synthetic Gesture Class: {label}")
-        # ax.set_xlabel("Time Steps")
-        # ax.set_ylabel("Amplitude")
-        ax.grid(True, linestyle='--', alpha=0.6)
+        ax.set_title(f"Synthetic Gesture Class: {label}", fontsize=10, fontweight='bold')
+        ax.grid(True, linestyle='--', alpha=0.15)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
         
         if i == 0:
             ax.legend(loc='upper right', fontsize='small')

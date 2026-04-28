@@ -119,11 +119,11 @@ def compare_models(model_names, device):
         try:
             print(f"  > Plotting Power Grip (Rep 0)...")
             viz.plot_gesture_pipeline(
-                full_dataset.df, 
+                full_dataset.df,
                 label_id=11,     # Power Grip
+                dataset_obj=full_dataset,
                 repetition_index=0
-            )
-        except Exception as e:
+            )        except Exception as e:
             print(f"    ! Could not plot pipeline: {e}")
 
     # 3. Create & Save Scorecard
