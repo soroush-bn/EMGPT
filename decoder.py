@@ -10,17 +10,17 @@ import yaml
 from VQVAE.model import SDformerVQVAE
 
 class VQVAESignalDecoder:
-    def __init__(self, vqvae_model_path, vqvae_config, device="cuda"):
+    def __init__(self, vqvae_model_path, vqvae_config, scaler=None, device="cuda"):
         """
         Initializes the decoder and loads the pretrained SDformerVQVAE weights.
         """
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
+        self.config = vqvae_config
         print(f"Loading VQ-VAE model from {vqvae_model_path} onto {self.device}...")
         
         # Instantiate your specific VQ-VAE model
         self.model = SDformerVQVAE(vqvae_config)
         
-        # Handle potential DDP "module." prefix if the VQ-VAE was trained on multiple GPUs
         state_dict = torch.load(vqvae_model_path, map_location=self.device)
         unwanted_prefix = "module."
         for k, v in list(state_dict.items()):
@@ -31,16 +31,26 @@ class VQVAESignalDecoder:
         self.model.eval()
         self.model.to(self.device)
         
-        # Based on your Encoder architecture (two stride=2 layers), 
-        # 1 token = 4 raw time steps.
         self.downsample_factor = 4 
+
+        # --- Setup Scaler for Unnormalization ---
+        from sklearn.preprocessing import StandardScaler
+        if scaler is not None:
+            self.scaler = scaler
+        else:
+            print("No scaler provided. Attempting to fit new scaler from training data...")
+            # We need to replicate the scaling logic from EMGDataset
+            from VQVAE.dataset import EMGDataset
+            # Use 'train' split to get the correct fitted scaler
+            train_dataset = EMGDataset(vqvae_config, split='train')
+            self.scaler = train_dataset.scaler
+            print("Scaler fitted successfully.")
 
     def decode_window(self, window_indices):
         """
-        Takes a subset of tokens representing a specific time window 
-        and decodes them into raw continuous EMG/IMU signals.
+        Takes a subset of tokens and decodes them into raw signals.
+        Now includes inverse scaling to bring signals back to real scale.
         """
-        # Ensure indices are properly shaped: (batch_size, sequence_length)
         if isinstance(window_indices, np.ndarray):
             window_indices = torch.tensor(window_indices, dtype=torch.long)
         
@@ -50,21 +60,18 @@ class VQVAESignalDecoder:
         window_indices = window_indices.to(self.device)
         
         with torch.no_grad():
-            # 1. Map discrete indices to continuous vectors using the Quantizer's embedding table
-            # Resulting shape: (Batch, Sequence_Length, Embedding_Dim)
             quantized_vectors = self.model.quantizer.embedding[window_indices]
-            
-            # 2. Your Decoder expects (Batch, Dim, Time), so we permute
             quantized_vectors = quantized_vectors.permute(0, 2, 1)
-            
-            # 3. Pass through the ResNet1D Decoder
-            # Output shape: (Batch, Raw_Channels, Raw_Time_Steps)
             raw_signals = self.model.decoder(quantized_vectors)
-            
-            # 4. Permute back to standard time-series format: (Batch, Time, Channels)
-            raw_signals = raw_signals.permute(0, 2, 1)
+            raw_signals = raw_signals.permute(0, 2, 1).cpu().numpy()
 
-        return raw_signals.cpu().numpy()
+        # --- Inverse Scaling ---
+        B, T, C = raw_signals.shape
+        # Flatten batch and time for scaler
+        flat_signals = raw_signals.reshape(-1, C)
+        unnormalized_signals = self.scaler.inverse_transform(flat_signals)
+        # Reshape back to (B, T, C)
+        return unnormalized_signals.reshape(B, T, C)
 
     def decode_gesture(self, gesture_indices):
         """

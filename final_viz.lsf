@@ -74,6 +74,11 @@ echo "--- Stage E: Classification Results ---"
 # Copy the final results CSV if it exists
 if [ -f "$BASE_DIR/classification_experiments_results.csv" ]; then
     cp "$BASE_DIR/classification_experiments_results.csv" "$VIZ_DIR/"
+    
+    echo "Generating Classification Bar Chart..."
+    python plot_classification_report.py \
+        --csv "$BASE_DIR/classification_experiments_results.csv" \
+        --save_dir "$VIZ_DIR"
 fi
 
 echo "--- Stage F: Spectral and Statistical Fidelity ---"

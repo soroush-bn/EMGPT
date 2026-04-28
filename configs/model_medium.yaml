@@ -1,5 +1,5 @@
-exp_name: "model_small"
-wandb_project_name: "model_small"
+exp_name: "model_medium"
+wandb_project_name: "model_small" #for comparison
 
 # --- OPTION B: ALL GESTURES ---
 filter_class: null       # Must be null to load all gestures!
@@ -21,15 +21,15 @@ vocab_size: 512          # Matches your VQ-VAE codebook size
 # -----------------------------------------
 
 # Explicit paths from VQ-VAE phase
-train_data_path: "/home/sbaghernezha/projects/EMGPT/VQVAE/models/model_small/train_encoded_df.csv"
-val_data_path: "/home/sbaghernezha/projects/EMGPT/VQVAE/models/model_small/unseen_encoded_df.csv"
+train_data_path: "/home/sbaghernezha/projects/EMGPT/VQVAE/models/model_medium/train_encoded_df.csv"
+val_data_path: "/home/sbaghernezha/projects/EMGPT/VQVAE/models/model_medium/unseen_encoded_df.csv"
 
 ckpt_path: null
 
 # Model architecture
-n_layer: 6
+n_layer: 8
 n_head: 64
-n_embd: 128
+n_embd: 256
 dropout: 0.2
 bias: false
 
@@ -64,7 +64,7 @@ temperature: 0.8
 
 # --- VQ-VAE CONFIGURATION ---
 vqvae:
-  name: "model_small"
+  name: "model_medium"
   number_of_epochs: 200
   input_dim: 8         
   hidden_dim: 512    
@@ -78,7 +78,7 @@ vqvae:
   decay: 0.99           
 
   wandb_log: True
-  wandb_project: "vqvae_model_small"
+  wandb_project: "vqvae_model_small" # for comparison
 
   participants_list_ids : ["033106b27b","bc4dd952fe","31afab1e30","97c6aaac2d","7037a93026","98aa5fac2d","ecfa481b42","e49db6578f","27f6898a3f","3f858df9cf","9780ed81f4"] 
   sensor_type : "emg"

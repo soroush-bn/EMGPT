@@ -109,6 +109,61 @@ def run_classification_workflow(X_train, y_train, p_ids_train, X_test, y_test, p
         
     return acc_global, f1_global, np.mean(ws_accs) if ws_accs else 0, np.mean(ws_f1s) if ws_f1s else 0
 
+import matplotlib.pyplot as plt
+
+def plot_classification_results(df, save_dir):
+    """
+    Plots a grouped bar chart for Between-Subj and Within-Subj accuracy.
+    """
+    # Create labels for X-axis (Experiment + Ratio)
+    x_labels = []
+    for _, row in df.iterrows():
+        label = row['Experiment'].replace("Exp ", "")
+        if row['Ratio'] != "N/A":
+            label += f"\n({row['Ratio']})"
+        x_labels.append(label)
+
+    x = np.arange(len(x_labels))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(15, 7))
+    
+    # Use color-blind friendly blue palette
+    # Between-Subj: #335067 (Muted blue-grey)
+    # Within-Subj: #054984 (Deep blue)
+    rects1 = ax.bar(x - width/2, df['Between-Subj Acc'] * 100, width, label='Between-Subject', color='#335067', alpha=0.85)
+    rects2 = ax.bar(x + width/2, df['Within-Subj Acc'] * 100, width, label='Within-Subject', color='#054984', alpha=0.85)
+
+    ax.set_ylabel('Accuracy (%)', fontweight='bold')
+    ax.set_title('Classification Performance across Data Ratios', fontsize=16, fontweight='bold', color='#335067')
+    ax.set_xticks(x)
+    ax.set_xticklabels(x_labels, rotation=0, fontsize=9)
+    ax.legend(loc='upper right')
+    ax.grid(axis='y', alpha=0.15)
+    ax.set_ylim(0, 100)
+    
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # Add value labels on top of bars
+    def autolabel(rects):
+        for rect in rects:
+            height = rect.get_height()
+            ax.annotate(f'{height:.1f}%',
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3), # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom', fontsize=8, fontweight='bold')
+
+    autolabel(rects1)
+    autolabel(rects2)
+
+    plt.tight_layout()
+    plot_path = os.path.join(save_dir, "classification_results_bar_chart.png")
+    plt.savefig(plot_path, dpi=200)
+    plt.close()
+    print(f"Classification bar chart saved to: {plot_path}")
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, required=True, help="Path to Transformer config")
@@ -232,6 +287,9 @@ def main():
     save_path = os.path.join(save_dir, "classification_experiments_results.csv")
     res_df.to_csv(save_path, index=False)
     print(f"\nResults saved to: {save_path}")
+
+    # Generate Visualization
+    plot_classification_results(res_df, save_dir)
 
 if __name__ == "__main__":
     main()

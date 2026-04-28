@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import argparse
 import pathlib
 from decoder import VQVAESignalDecoder
+from viz_style import COLORS, BLUE_PALETTE, apply_ax_style
 
 def compare_real_vs_synthetic(config_path, vq_config_path, participant_idx=0):
     # 1. Load Configs
@@ -23,8 +24,12 @@ def compare_real_vs_synthetic(config_path, vq_config_path, participant_idx=0):
     base_model_dir = os.path.join("models", exp_name)
     vq_ckpt_path = f"VQVAE/models/{vq_name}/final_model.pth"
 
-    # 2. Initialize Decoder
-    decoder = VQVAESignalDecoder(vqvae_model_path=vq_ckpt_path, vqvae_config=vq_config)
+    # 2. Initialize Scaler and Decoder
+    from VQVAE.dataset import EMGDataset
+    print("Fitting scaler from training data...")
+    full_dataset = EMGDataset(vq_config, split='train')
+    
+    decoder = VQVAESignalDecoder(vqvae_model_path=vq_ckpt_path, vqvae_config=vq_config, scaler=full_dataset.scaler)
     
     # 3. Define Ratios and Paths
     ratios = ["70_5", "60_15", "50_25", "25_50"]
@@ -51,14 +56,13 @@ def compare_real_vs_synthetic(config_path, vq_config_path, participant_idx=0):
         real_sample = real_gesture_data.iloc[[participant_idx]]
         
         # Decode Real
-        # Extract token columns
         token_cols = [c for c in real_sample.columns if c.startswith('col_')]
         real_tokens = real_sample[token_cols].values
         real_signal = decoder.decode_window(real_tokens)[0] # (Time, Channels)
 
         # Prepare Grid Plot
         fig, axes = plt.subplots(len(ratios), 2, figsize=(16, 4 * len(ratios)), sharex=True)
-        fig.suptitle(f"Real vs Synthetic Reconstruction | Gesture {gesture_id} | Participant {participant_idx}", fontsize=18)
+        fig.suptitle(f"Real vs Synthetic Reconstruction | Gesture {gesture_id} | Participant {participant_idx}", fontsize=18, fontweight='bold', color=COLORS['text_primary'])
 
         for i, ratio in enumerate(ratios):
             synth_path = os.path.join(base_model_dir, f"seen_synthetic_df_{ratio}.csv")
@@ -81,33 +85,21 @@ def compare_real_vs_synthetic(config_path, vq_config_path, participant_idx=0):
                 synth_tokens = synth_sample[token_cols].values
                 synth_signal = decoder.decode_window(synth_tokens)[0]
 
-                # Define a color-blind friendly blue palette
-                blue_palette = [
-                    '#054984', '#335067', '#0072b2', '#56b4e9', 
-                    '#009e73', '#004d40', '#1a237e', '#3f51b5'
-                ]
+                # Plot Real (Left) - Only first 4 channels
+                for c in range(min(4, real_signal.shape[1])):
+                    color = BLUE_PALETTE[c % len(BLUE_PALETTE)]
+                    axes[i, 0].plot(real_signal[:, c], color=color, alpha=0.7, label=f"Ch {c+1}")
+                
+                apply_ax_style(axes[i, 0], title=f"Real (Reconstructed) | Gesture {gesture_id}", ylabel=f"Ratio {ratio}\nAmplitude")
+                axes[i, 0].legend(loc='upper right', fontsize='x-small', ncol=2)
 
-                # Plot Real (Left)
-                for c in range(real_signal.shape[1]):
-                    color = blue_palette[c % len(blue_palette)]
-                    axes[i, 0].plot(real_signal[:, c], color=color, alpha=0.7, label=f"Ch {c+1}" if i==0 else "")
-                axes[i, 0].set_title(f"Real (Reconstructed) | Gesture {gesture_id}", fontweight='bold', color='#335067')
-                axes[i, 0].set_ylabel(f"Ratio {ratio}\nAmplitude")
-                axes[i, 0].grid(alpha=0.15)
-                axes[i, 0].spines['top'].set_visible(False)
-                axes[i, 0].spines['right'].set_visible(False)
-
-                # Plot Synthetic (Right)
-                for c in range(synth_signal.shape[1]):
-                    color = blue_palette[c % len(blue_palette)]
-                    axes[i, 1].plot(synth_signal[:, c], color=color, alpha=0.7)
-                axes[i, 1].set_title(f"Synthetic (Ratio {ratio}) | Gesture {gesture_id}", fontweight='bold', color='#054984')
-                axes[i, 1].grid(alpha=0.15)
-                axes[i, 1].spines['top'].set_visible(False)
-                axes[i, 1].spines['right'].set_visible(False)
-
-        if i == 0:
-            axes[0, 0].legend(loc='upper right', fontsize='small')
+                # Plot Synthetic (Right) - Only first 4 channels
+                for c in range(min(4, synth_signal.shape[1])):
+                    color = BLUE_PALETTE[c % len(BLUE_PALETTE)]
+                    axes[i, 1].plot(synth_signal[:, c], color=color, alpha=0.7, label=f"Ch {c+1}")
+                
+                apply_ax_style(axes[i, 1], title=f"Synthetic (Ratio {ratio}) | Gesture {gesture_id}", color_title=True)
+                axes[i, 1].legend(loc='upper right', fontsize='x-small', ncol=2)
 
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         save_path = os.path.join(save_dir, f"compare_g{gesture_id}_p{participant_idx}.png")
