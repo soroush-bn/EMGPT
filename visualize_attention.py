@@ -77,8 +77,10 @@ def visualize_attention(config_path, vqvae_config_path, model_path, layer_to_viz
     val_data_path = config.get('val_data_path')
     dataset = EncodedEMGDataset(csv_files=[val_data_path])
     
-    # Use the full token sequence (all columns) instead of truncated training version
-    full_seq = dataset.tokens[sample_idx]
+    # Use the token sequence up to the model's block_size
+    # Dataset usually has 75 tokens, but model block_size is 74
+    block_size = config.get('block_size', 75)
+    full_seq = dataset.tokens[sample_idx][:block_size]
     X = torch.tensor(full_seq, dtype=torch.long).unsqueeze(0).to(device)
     label = torch.tensor([dataset.labels[sample_idx]]).to(device)
 
