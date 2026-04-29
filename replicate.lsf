@@ -5,7 +5,7 @@
 # --- SINGLE SOURCE OF TRUTH ---
 # Change these paths once here to update the entire pipeline
 export VQ_CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/model_small.yaml"
-export TR_CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/model_small.yaml"
+export TR_CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/model_medium.yaml"
 # ------------------------------
 
 # 1. Train VQ-VAE (Phase 1)
