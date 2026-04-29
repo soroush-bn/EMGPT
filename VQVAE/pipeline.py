@@ -24,7 +24,11 @@ with open(args.config, "r") as file:
     else:
         config = full_config
 print(f"Loaded configuration from {args.config}")
-assert config.get('exp_name', "") == "model_medium", "Please set 'exp_name' in config to 'model_medium' to match the expected directory structure for this pipeline."
+#print all config args
+print("Configuration:")
+for key, value in config.items():
+    print(f"  {key}: {value}")
+# assert config.get('exp_name', "") == "model_medium", "Please set 'exp_name' in config to 'model_medium' to match the expected directory structure for this pipeline."
 save_dir = f"./models/{config['name']}/"
 os.makedirs(save_dir, exist_ok=True)
 

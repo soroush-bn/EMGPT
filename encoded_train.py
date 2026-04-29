@@ -31,7 +31,11 @@ args = parser.parse_args()
 # load yaml 
 with open(args.config, "r") as file:
     config = yaml.safe_load(file)
-assert config.get('exp_name', "") == "model_medium", "Please set 'exp_name' in config to 'model_medium' to match the expected directory structure for this pipeline."
+#print all config args
+print("Configuration:")
+for key, value in config.items():
+    print(f"  {key}: {value}")
+# assert config.get('exp_name', "") == "model_medium", "Please set 'exp_name' in config to 'model_medium' to match the expected directory structure for this pipeline."
 print("LIBS LOADED")
 
 device = "cuda"
