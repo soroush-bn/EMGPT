@@ -97,7 +97,7 @@ def main():
     synthetic_files = [f for f in os.listdir(base_model_dir) if f.startswith("seen_synthetic_df_") and f.endswith(".csv")]
     
     if not synthetic_files:
-        print(f"No synthetic datasets found in {base_model_dir}")
+        print(f"No synthetic or real unseen datasets found.")
         return
 
     MODEL_WEIGHTS_PATH = os.path.join(vqvae_models_dir, vq_name, "final_model.pth") 
