@@ -31,7 +31,6 @@ args = parser.parse_args()
 # load yaml 
 with open(args.config, "r") as file:
     config = yaml.safe_load(file)
-assert 'exp_name' in config, "Config must contain 'exp_name' key for naming outputs"
 assert config["exp_name"]=="model_medium", "Please set 'exp_name' in config to 'model_medium' to match the expected directory structure for this pipeline."
 print("LIBS LOADED")
 
