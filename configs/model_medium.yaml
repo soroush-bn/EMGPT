@@ -21,15 +21,15 @@ vocab_size: 512          # Matches your VQ-VAE codebook size
 # -----------------------------------------
 
 # Explicit paths from VQ-VAE phase
-train_data_path: "/home/sbaghernezha/projects/EMGPT/VQVAE/models/model_medium/train_encoded_df.csv"
-val_data_path: "/home/sbaghernezha/projects/EMGPT/VQVAE/models/model_medium/unseen_encoded_df.csv"
+train_data_path: "/home/sbaghernezha/projects/EMGPT/VQVAE/models/model_small/train_encoded_df.csv"
+val_data_path: "/home/sbaghernezha/projects/EMGPT/VQVAE/models/model_small/unseen_encoded_df.csv"
 
 ckpt_path: null
 
 # Model architecture
 n_layer: 8
 n_head: 64
-n_embd: 256
+n_embd: 512
 dropout: 0.2
 bias: false
 
@@ -64,7 +64,7 @@ temperature: 0.8
 
 # --- VQ-VAE CONFIGURATION ---
 vqvae:
-  name: "model_medium"
+  name: "model_small"
   number_of_epochs: 200
   input_dim: 8         
   hidden_dim: 512    

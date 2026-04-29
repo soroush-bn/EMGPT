@@ -72,18 +72,24 @@ class Visualizer:
 
         emg_cols = [c for c in df.columns if 'emg' in c.lower()]
         raw_vals = df[emg_cols].values
-        raw_seg = raw_vals[final_start : final_start + self.SAMPLES_PER_REP]
+        # Apply the same logic as training/unseen: Filter -> Scale
         full_filtered = dataset_obj._apply_filters(raw_vals)
-        proc_seg_full = dataset_obj.scaler.transform(full_filtered[final_start : final_start + self.SAMPLES_PER_REP])
-        
-        inp = torch.tensor(proc_seg_full, dtype=torch.float32).transpose(0, 1).unsqueeze(0).to(self.device)
+        proc_seg_norm = dataset_obj.scaler.transform(full_filtered[final_start : final_start + self.SAMPLES_PER_REP])
+
+        # To keep everything in same scale for comparison:
+        # We unnormalize the 'Preprocessed' view as well
+        proc_seg_unnorm = dataset_obj.scaler.inverse_transform(proc_seg_norm)
+
+        inp = torch.tensor(proc_seg_norm, dtype=torch.float32).transpose(0, 1).unsqueeze(0).to(self.device)
+
         with torch.no_grad():
             recon, _, _, _ = self.model(inp)
-            recon_seg = recon[0].cpu().numpy()
+            recon_norm = recon[0].cpu().numpy() # [C, T]
+            recon_unnorm = dataset_obj.scaler.inverse_transform(recon_norm.T).T
 
         fig, axes = plt.subplots(8, 3, figsize=(18, 12), sharex='col')
         t = np.linspace(0, self.REP_DURATION_SEC, self.SAMPLES_PER_REP)
-        
+
         titles = [f"Raw (Label {label_id})", "Preprocessed", "Reconstruction"]
         for i, tit in enumerate(titles):
             color_tit = (i == 2)
@@ -91,9 +97,9 @@ class Visualizer:
 
         for ch in range(8):
             axes[ch, 0].plot(t, raw_seg[:, ch], color=COLORS['secondary'], alpha=0.7)
-            axes[ch, 1].plot(t, proc_seg_full[:, ch], color=COLORS['primary'], alpha=0.8)
-            axes[ch, 2].plot(t, recon_seg[ch], color=COLORS['primary'], alpha=0.9, linestyle='--')
-            
+            axes[ch, 1].plot(t, proc_seg_unnorm[:, ch], color=COLORS['primary'], alpha=0.8)
+            axes[ch, 2].plot(t, recon_unnorm[ch], color=COLORS['primary'], alpha=0.9, linestyle='--')
+
             apply_ax_style(axes[ch, 0], ylabel=f'Ch {ch+1}')
             apply_ax_style(axes[ch, 1])
             apply_ax_style(axes[ch, 2])
@@ -111,12 +117,16 @@ class Visualizer:
         emg_cols = [c for c in raw_df.columns if 'emg' in c.lower()]
         raw_vals = raw_df[emg_cols].values
         raw_seg = raw_vals[final_start : final_start + self.SAMPLES_PER_REP]
+        
         full_filtered = dataset_obj._apply_filters(raw_vals)
-        proc_seg_full = dataset_obj.scaler.transform(full_filtered[final_start : final_start + self.SAMPLES_PER_REP])
-        inp = torch.tensor(proc_seg_full, dtype=torch.float32).transpose(0, 1).unsqueeze(0).to(self.device)
+        proc_seg_norm = dataset_obj.scaler.transform(full_filtered[final_start : final_start + self.SAMPLES_PER_REP])
+        proc_seg_unnorm = dataset_obj.scaler.inverse_transform(proc_seg_norm)
+
+        inp = torch.tensor(proc_seg_norm, dtype=torch.float32).transpose(0, 1).unsqueeze(0).to(self.device)
         with torch.no_grad():
             recon, _, _, _ = self.model(inp)
-            recon_seg = recon[0].cpu().numpy()
+            recon_norm = recon[0].cpu().numpy()
+            recon_unnorm = dataset_obj.scaler.inverse_transform(recon_norm.T).T
 
         fig, axes = plt.subplots(8, 3, figsize=(18, 12), sharex='col')
         t = np.linspace(0, self.REP_DURATION_SEC, self.SAMPLES_PER_REP)
@@ -126,8 +136,8 @@ class Visualizer:
 
         for ch in range(8):
             axes[ch, 0].plot(t, raw_seg[:, ch], color=COLORS['secondary'], alpha=0.7)
-            axes[ch, 1].plot(t, proc_seg_full[:, ch], color=COLORS['primary'], alpha=0.8)
-            axes[ch, 2].plot(t, recon_seg[ch], color=COLORS['primary'], alpha=0.9, linestyle='--')
+            axes[ch, 1].plot(t, proc_seg_unnorm[:, ch], color=COLORS['primary'], alpha=0.8)
+            axes[ch, 2].plot(t, recon_unnorm[ch], color=COLORS['primary'], alpha=0.9, linestyle='--')
             apply_ax_style(axes[ch, 0], ylabel=f'Ch {ch+1}')
             apply_ax_style(axes[ch, 1])
             apply_ax_style(axes[ch, 2])

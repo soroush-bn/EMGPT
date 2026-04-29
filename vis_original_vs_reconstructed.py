@@ -92,9 +92,11 @@ def visualize_ratio_comparison(vq_config, tr_config, save_dir):
         # Row 0: Raw
         for r in range(3):
             if r < len(rep_starts):
-                seg = df_raw.iloc[rep_starts[r] : rep_starts[r] + 4000][sensor_to_plot].values * 1e6
+                # Removed * 1e6 - Reconstruction is now unnormalized to match original scale
+                seg = df_raw.iloc[rep_starts[r] : rep_starts[r] + 4000][sensor_to_plot].values
                 axes[0, r].plot(seg, color=COLORS['secondary'], alpha=0.7, lw=1.5)
                 apply_ax_style(axes[0, r], title=f"Original Rep {r+1}")
+
         
         # Rows 1+: Reconstructions
         for row_idx, ratio in enumerate(ratios):

@@ -17,43 +17,36 @@ export TR_CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/model_small.yam
 
 # 2. Train Gesture Transformer (Phase 2)
 # Added -w "done($JOB1_ID)" so it waits for Phase 1 to generate the encoded data
-# JOB2_CMD="bsub  -env \"CONFIG=$TR_CONFIG\" -J replicate_run -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < encoded_run.lsf"
-# echo "Submitting Stage 2: Transformer Training (waiting for $JOB1_ID)..."
-# JOB2_OUT=$(eval $JOB2_CMD)
-# JOB2_ID=$(echo $JOB2_OUT | grep -oP '(?<=Job <)\d+(?=>)')
-# echo "Stage 2 submitted with ID: $JOB2_ID"
+JOB2_CMD="bsub  -env \"CONFIG=$TR_CONFIG\" -J replicate_run -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < encoded_run.lsf"
+echo "Submitting Stage 2: Transformer Training (waiting for $JOB1_ID)..."
+JOB2_OUT=$(eval $JOB2_CMD)
+JOB2_ID=$(echo $JOB2_OUT | grep -oP '(?<=Job <)\d+(?=>)')
+echo "Stage 2 submitted with ID: $JOB2_ID"
 
-# # 3. Synthetic Data Generation
-# JOB3_CMD="bsub -w \"done($JOB2_ID)\" -env \"CONFIG=$TR_CONFIG\" -J replicate_generate -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < encoded_generate.lsf"
-# echo "Submitting Stage 3: Synthetic Data Generation (waiting for $JOB2_ID)..."
-# JOB3_OUT=$(eval $JOB3_CMD)
-# JOB3_ID=$(echo $JOB3_OUT | grep -oP '(?<=Job <)\d+(?=>)')
-# echo "Stage 3 submitted with ID: $JOB3_ID"
+# 3. Synthetic Data Generation
+JOB3_CMD="bsub -w \"done($JOB2_ID)\" -env \"CONFIG=$TR_CONFIG\" -J replicate_generate -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < encoded_generate.lsf"
+echo "Submitting Stage 3: Synthetic Data Generation (waiting for $JOB2_ID)..."
+JOB3_OUT=$(eval $JOB3_CMD)
+JOB3_ID=$(echo $JOB3_OUT | grep -oP '(?<=Job <)\d+(?=>)')
+echo "Stage 3 submitted with ID: $JOB3_ID"
 
-# # # 4. Sample Visualization
-# # JOB4_CMD="bsub -w \"done($JOB3_ID)\" -env \"CONFIG=$TR_CONFIG,VQ_CONFIG=$VQ_CONFIG\" -J replicate_samplevis -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < samplevis.lsf"
-# # echo "Submitting Stage 4: Sample Visualization (waiting for $JOB3_ID)..."
-# # JOB4_OUT=$(eval $JOB4_CMD)
-# # JOB4_ID=$(echo $JOB4_OUT | grep -oP '(?<=Job <)\d+(?=>)')
-# # echo "Stage 4 submitted with ID: $JOB4_ID"
-
-# # 5. Create Encoded Reconstruction
-# JOB5_CMD="bsub -w \"done($JOB3_ID)\" -env \"CONFIG=$TR_CONFIG,VQ_CONFIG=$VQ_CONFIG\" -J replicate_reconstruction -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < create_encoded_reconstruction.lsf"
-# echo "Submitting Stage 5: Signal Reconstruction (waiting for $JOB3_ID)..."
-# JOB5_OUT=$(eval $JOB5_CMD)
-# JOB5_ID=$(echo $JOB5_OUT | grep -oP '(?<=Job <)\d+(?=>)')
-# echo "Stage 5 submitted with ID: $JOB5_ID"
+# 5. Create Encoded Reconstruction
+JOB5_CMD="bsub -w \"done($JOB3_ID)\" -env \"CONFIG=$TR_CONFIG,VQ_CONFIG=$VQ_CONFIG\" -J replicate_reconstruction -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < create_encoded_reconstruction.lsf"
+echo "Submitting Stage 5: Signal Reconstruction (waiting for $JOB3_ID)..."
+JOB5_OUT=$(eval $JOB5_CMD)
+JOB5_ID=$(echo $JOB5_OUT | grep -oP '(?<=Job <)\d+(?=>)')
+echo "Stage 5 submitted with ID: $JOB5_ID"
 
 
-# # 6. Encoded Classification & Cross-Domain Validation
-# JOB6_CMD="bsub -w \"done($JOB5_ID)\" -env \"CONFIG=$TR_CONFIG,VQ_CONFIG=$VQ_CONFIG\" -J replicate_classification -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < encoded_classify.lsf"
-# echo "Submitting Stage 6: Classification (waiting for $JOB5_ID)..."
-# JOB6_OUT=$(eval $JOB6_CMD)
-# JOB6_ID=$(echo $JOB6_OUT | grep -oP '(?<=Job <)\d+(?=>)')
-# echo "Stage 6 submitted with ID: $JOB6_ID"
+# 6. Encoded Classification & Cross-Domain Validation
+JOB6_CMD="bsub -w \"done($JOB5_ID)\" -env \"CONFIG=$TR_CONFIG,VQ_CONFIG=$VQ_CONFIG\" -J replicate_classification -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < encoded_classify.lsf"
+echo "Submitting Stage 6: Classification (waiting for $JOB5_ID)..."
+JOB6_OUT=$(eval $JOB6_CMD)
+JOB6_ID=$(echo $JOB6_OUT | grep -oP '(?<=Job <)\d+(?=>)')
+echo "Stage 6 submitted with ID: $JOB6_ID"
 
 # 7. Final Visualizations & Consolidation
-JOB7_CMD="bsub  -env \"CONFIG=$TR_CONFIG,VQ_CONFIG=$VQ_CONFIG\" -J replicate_final_viz -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < final_viz.lsf"
+JOB7_CMD="bsub -w \"done($JOB6_ID)\"  -env \"CONFIG=$TR_CONFIG,VQ_CONFIG=$VQ_CONFIG\" -J replicate_final_viz -q gpu -gpu \"num=1\" -o ./outs/%J.out -e ./errors/%J.err < final_viz.lsf"
 echo "Submitting Stage 7: Final Visualization & Consolidation (waiting for $JOB6_ID)..."
 eval $JOB7_CMD
 
