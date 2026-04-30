@@ -54,6 +54,61 @@ class Visualizer:
         plt.savefig(os.path.join(self.save_dir, "atomic_patterns.png"), bbox_inches='tight')
         plt.close(fig2)
 
+    def plot_data_distribution(self, dataloader, num_samples=2000):
+        self.model.eval()
+        all_data = []
+        count = 0
+        with torch.no_grad():
+            for x in dataloader:
+                all_data.append(x.cpu().numpy())
+                count += x.shape[0]
+                if count >= num_samples:
+                    break
+        
+        data = np.concatenate(all_data, axis=0)[:num_samples] # [N, C, T]
+        data_flat = data.transpose(1, 0, 2).reshape(8, -1) # [8, N*T]
+        
+        fig, axes = plt.subplots(4, 2, figsize=(15, 12))
+        axes = axes.flatten()
+        for i in range(8):
+            axes[i].hist(data_flat[i], bins=50, color=BLUE_PALETTE[i % len(BLUE_PALETTE)], alpha=0.7)
+            apply_ax_style(axes[i], title=f"Channel {i+1} Distribution")
+        
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_dir, "data_distribution.png"), bbox_inches='tight')
+        plt.close(fig)
+
+    def plot_single_reconstruction(self, dataloader, sample_index=0):
+        self.model.eval()
+        batch_size = dataloader.batch_size
+        batch_idx = sample_index // batch_size
+        intra_batch_idx = sample_index % batch_size
+        
+        for i, x in enumerate(dataloader):
+            if i == batch_idx:
+                x = x.to(self.device)
+                with torch.no_grad():
+                    x_recon, _, _, _ = self.model(x)
+                
+                orig = x[intra_batch_idx].cpu().numpy()
+                recon = x_recon[intra_batch_idx].cpu().numpy()
+                
+                fig, axes = plt.subplots(8, 1, figsize=(12, 16), sharex=True)
+                t = np.arange(orig.shape[1])
+                for ch in range(8):
+                    axes[ch].plot(t, orig[ch], color=COLORS['secondary'], alpha=0.7, label='Original')
+                    axes[ch].plot(t, recon[ch], color=COLORS['primary'], alpha=0.8, label='Reconstruction', linestyle='--')
+                    apply_ax_style(axes[ch], ylabel=f'Ch {ch+1}')
+                    if ch == 0:
+                        axes[ch].legend(loc='upper right')
+                
+                axes[7].set_xlabel("Time Steps")
+                plt.suptitle(f"Sample {sample_index} Reconstruction", fontsize=16, fontweight='bold')
+                plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+                plt.savefig(os.path.join(self.save_dir, f"recon_sample_{sample_index}.png"), bbox_inches='tight')
+                plt.close(fig)
+                break
+
     def plot_gesture_pipeline(self, df, label_id, dataset_obj, repetition_index=0):
         self.model.eval()
         indices = df.index[df['gt'] == label_id].to_numpy()
@@ -72,6 +127,7 @@ class Visualizer:
 
         emg_cols = [c for c in df.columns if 'emg' in c.lower()]
         raw_vals = df[emg_cols].values
+        raw_seg = raw_vals[final_start : final_start + self.SAMPLES_PER_REP]
         # Apply the same logic as training/unseen: Filter -> Scale
         full_filtered = dataset_obj._apply_filters(raw_vals)
         proc_seg_norm = dataset_obj.scaler.transform(full_filtered[final_start : final_start + self.SAMPLES_PER_REP])
