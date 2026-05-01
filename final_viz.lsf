@@ -11,8 +11,7 @@ module purge
 module load miniconda/pytorch-tensorflow-gpu
 
 # --- SINGLE SOURCE OF TRUTH ---
-export VQ_CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/model_small.yaml"
-export CONFIG="/gpfs/home/sbaghernezha/projects/EMGPT/configs/model_small.yaml"
+# Uses $CONFIG passed from replicate.lsf
 # ------------------------------
 
 # --- 1. SETUP DIRECTORIES ---
@@ -33,10 +32,7 @@ echo "Using checkpoint: $CKPT_PATH"
 # --- 3. RUN VISUALIZATIONS ---
 
 echo "--- Stage A: Synthetic Signal Grid (Quick View) ---"
-python encoded_visualizer.py \
-    --config "$CONFIG" \
-    --vqvae_config "$VQ_CONFIG" \
-    --vqvae_ckpt "./VQVAE/models/$(python -c "import yaml; cfg=yaml.safe_load(open('$VQ_CONFIG')); print(cfg['vqvae']['name'] if 'vqvae' in cfg else cfg['name'])")/final_model.pth"
+python encoded_visualizer.py --config "$CONFIG"
 
 mv "$BASE_DIR/synthetic_signals_grid.png" "$VIZ_DIR/"
 
@@ -44,7 +40,6 @@ echo "--- Stage B: Real vs Synthetic Comparison (All Gestures & Ratios) ---"
 # This is the primary visualization: Real Reconstruction vs Synthetic Reconstruction
 python compare_real_vs_synthetic.py \
     --config "$CONFIG" \
-    --vqvae_config "$VQ_CONFIG" \
     --participant 0
 
 # Copy the entire directory of comparison plots
@@ -52,7 +47,7 @@ cp -r "$BASE_DIR/reconstruction_comparisons" "$VIZ_DIR/"
 
 echo "--- Stage C: VQ-VAE Latent Space (t-SNE & Atoms) ---"
 python run_vqvae_viz.py \
-    --vqvae_config "$VQ_CONFIG" \
+    --config "$CONFIG" \
     --save_dir "$VIZ_DIR/vqvae_latent_space"
 
 echo "--- Stage D: Attention Heatmaps ---"
@@ -63,7 +58,6 @@ for LAYER in 0 $LAST_LAYER; do
     echo "Visualizing Attention for Layer $LAYER..."
     python visualize_attention.py \
         --config "$CONFIG" \
-        --vqvae_config "$VQ_CONFIG" \
         --ckpt "$CKPT_PATH" \
         --layer $LAYER \
         --sample 0 \
@@ -82,14 +76,10 @@ if [ -f "$BASE_DIR/classification_experiments_results.csv" ]; then
 fi
 
 echo "--- Stage F: Spectral and Statistical Fidelity ---"
-python compare_spectral_fidelity.py \
-    --config "$CONFIG" \
-    --vqvae_config "$VQ_CONFIG"
+python compare_spectral_fidelity.py --config "$CONFIG"
 
 echo "--- Stage G: Raw Signal Ratio Comparisons (P6 & P7) ---"
-python vis_original_vs_reconstructed.py \
-    --config "$CONFIG" \
-    --vqvae_config "$VQ_CONFIG"
+python vis_original_vs_reconstructed.py --config "$CONFIG"
 
 echo "--- Stage H: Consolidate All Phase Results ---"
 python consolidate_results.py --config "$CONFIG"

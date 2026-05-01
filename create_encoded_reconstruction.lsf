@@ -19,8 +19,8 @@ NUM_GPUS=$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)
 echo "Number of GPUs detected: $NUM_GPUS"
 
 
-python reconstruct_encoded_df.py --config "$CONFIG" --vqvae_config "$VQ_CONFIG"
+python reconstruct_encoded_df.py --config "$CONFIG"
 echo "going for visualization"
-python vis_original_vs_reconstructed.py --config "$CONFIG" --vqvae_config "$VQ_CONFIG"
+python vis_original_vs_reconstructed.py --config "$CONFIG"
 echo "done visualizing"
 

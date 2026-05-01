@@ -9,13 +9,13 @@ import pathlib
 from decoder import VQVAESignalDecoder
 from viz_style import COLORS, BLUE_PALETTE, apply_ax_style
 
-def compare_real_vs_synthetic(config_path, vq_config_path, participant_idx=0):
+def compare_real_vs_synthetic(config_path, participant_idx=0):
     # 1. Load Configs
     with open(config_path, "r") as f:
-        tr_config = yaml.safe_load(f)
-    with open(vq_config_path, 'r') as f:
-        vq_config_full = yaml.safe_load(f)
-        vq_config = vq_config_full.get('vqvae', vq_config_full)
+        full_config = yaml.safe_load(f)
+    
+    tr_config = full_config
+    vq_config = full_config.get('vqvae', full_config)
 
     exp_name = tr_config['exp_name']
     vq_name = vq_config['name']
@@ -111,8 +111,7 @@ def compare_real_vs_synthetic(config_path, vq_config_path, participant_idx=0):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, required=True)
-    parser.add_argument('--vqvae_config', type=str, required=True)
     parser.add_argument('--participant', type=int, default=0)
     args = parser.parse_args()
     
-    compare_real_vs_synthetic(args.config, args.vqvae_config, args.participant)
+    compare_real_vs_synthetic(args.config, args.participant)

@@ -21,12 +21,12 @@ def get_psd(signal, fs=2000):
     f, pxx = welch(signal, fs=fs, axis=0, nperseg=256)
     return f, np.mean(pxx, axis=1)
 
-def run_fidelity_check(config_path, vq_config_path):
+def run_fidelity_check(config_path):
     with open(config_path, "r") as f:
-        tr_config = yaml.safe_load(f)
-    with open(vq_config_path, 'r') as f:
-        vq_config_full = yaml.safe_load(f)
-        vq_config = vq_config_full.get('vqvae', vq_config_full)
+        full_config = yaml.safe_load(f)
+    
+    tr_config = full_config
+    vq_config = full_config.get('vqvae', full_config)
 
     exp_name = tr_config['exp_name']
     model_dir = os.path.join("models", exp_name)
@@ -122,6 +122,5 @@ def run_fidelity_check(config_path, vq_config_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, required=True)
-    parser.add_argument('--vqvae_config', type=str, required=True)
     args = parser.parse_args()
-    run_fidelity_check(args.config, args.vqvae_config)
+    run_fidelity_check(args.config)

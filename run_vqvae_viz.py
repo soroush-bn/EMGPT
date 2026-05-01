@@ -7,14 +7,15 @@ from VQVAE.visualizer import Visualizer
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--vqvae_config', type=str, required=True)
+    parser.add_argument('--config', type=str, required=True, help="Path to consolidated config")
     parser.add_argument('--save_dir', type=str, default=None)
     args = parser.parse_args()
 
     # 1. Load Config
-    with open(args.vqvae_config, 'r') as f:
-        vqvae_config_full = yaml.safe_load(f)
-        vqvae_config = vqvae_config_full.get('vqvae', vqvae_config_full)
+    with open(args.config, 'r') as f:
+        full_config = yaml.safe_load(f)
+    
+    vqvae_config = full_config.get('vqvae', full_config)
 
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

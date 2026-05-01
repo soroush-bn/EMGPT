@@ -120,14 +120,14 @@ def visualize_ratio_comparison(vq_config, tr_config, save_dir):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, required=True)
-    parser.add_argument('--vqvae_config', type=str, required=True)
     parser.add_argument('--save_dir', type=str, default=None)
     args = parser.parse_args()
 
-    with open(args.config, 'r') as f: tr_config = yaml.safe_load(f)
-    with open(args.vqvae_config, 'r') as f:
-        vq_config_full = yaml.safe_load(f)
-        vq_config = vq_config_full.get('vqvae', vq_config_full)
+    with open(args.config, 'r') as f:
+        full_config = yaml.safe_load(f)
+    
+    tr_config = full_config
+    vq_config = full_config.get('vqvae', full_config)
 
     base_model_dir = os.path.join("models", tr_config['exp_name'])
     visualize_gesture_reconstruction(f"./VQVAE/models/{vq_config['name']}/unseen_data_preprocessed.csv", 

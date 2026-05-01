@@ -10,11 +10,12 @@ import argparse
 import pathlib
 from viz_style import COLORS, BLUE_PALETTE, apply_ax_style
 
-def visualize_attention(config_path, vqvae_config_path, model_path, layer_to_viz=0, sample_idx=0, save_dir="./attention_plots"):
-    with open(config_path, "r") as f: config = yaml.safe_load(f)
-    with open(vqvae_config_path, "r") as f:
-        vqvae_config_full = yaml.safe_load(f)
-        vqvae_config = vqvae_config_full.get('vqvae', vqvae_config_full)
+def visualize_attention(config_path, model_path, layer_to_viz=0, sample_idx=0, save_dir="./attention_plots"):
+    with open(config_path, "r") as f:
+        full_config = yaml.safe_load(f)
+    
+    config = full_config
+    vqvae_config = full_config.get('vqvae', full_config)
 
     if not os.path.exists(save_dir): os.makedirs(save_dir)
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -93,10 +94,9 @@ def visualize_attention(config_path, vqvae_config_path, model_path, layer_to_viz
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, required=True)
-    parser.add_argument('--vqvae_config', type=str, required=True)
     parser.add_argument('--ckpt', type=str, required=True)
     parser.add_argument('--layer', type=int, default=0)
     parser.add_argument('--sample', type=int, default=0)
     parser.add_argument('--save_dir', type=str, default=".")
     args = parser.parse_args()
-    visualize_attention(args.config, args.vqvae_config, args.ckpt, args.layer, args.sample, args.save_dir)
+    visualize_attention(args.config, args.ckpt, args.layer, args.sample, args.save_dir)

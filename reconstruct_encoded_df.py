@@ -64,43 +64,30 @@ def reconstruct_pipeline(original_data_path, encoded_data_path, vqvae, device, v
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, required=True, help="Path to Transformer config (replicate_small.yaml)")
-    parser.add_argument('--vqvae_config', type=str, required=True, help="Path to VQ-VAE config (tuned_config2.yaml)")
+    parser.add_argument('--config', type=str, required=True, help="Path to consolidated config (e.g., model_large.yaml)")
     args = parser.parse_args()
 
-    # Load configs
+    # Load consolidated config
     with open(args.config, 'r') as f:
-        tr_config = yaml.safe_load(f)
-    with open(args.vqvae_config, 'r') as f:
-        vqvae_config_full = yaml.safe_load(f)
-        vqvae_config = vqvae_config_full.get('vqvae', vqvae_config_full)
-
+        full_config = yaml.safe_load(f)
+    
+    tr_config = full_config
+    vqvae_config = full_config.get('vqvae', full_config)
 
     exp_name = tr_config['exp_name']
     vq_name = vqvae_config['name']
 
     # --- Path Configuration ---
-    model_files_base_directory = os.path.join(pathlib.Path(__file__).resolve().parent.__str__(), "models")
-    vqvae_models_dir = os.path.join(pathlib.Path(__file__).resolve().parent.__str__(), "VQVAE", "models")
-    CONFIG_PATH = args.vqvae_config
+    project_root = pathlib.Path(__file__).resolve().parent.__str__()
+    base_model_dir = os.path.join(project_root, "models", exp_name)
+    vqvae_models_dir = os.path.join(project_root, "VQVAE", "models", vq_name)
+    
     # Point to the UNSEEN preprocessed data from the VQ-VAE phase
-    ORIGINAL_DATA_PATH = os.path.join(vqvae_models_dir, vq_name, "unseen_data_preprocessed.csv")
-    
-    # Priority for encoded data:
-    # 1. New 'unseen_synthetic' files
-    # 2. Generic 'unseen_synthetic_encoded_samples.csv'
-    # 3. Fallback to old naming 'synthetic_df_...'
-    
-    base_model_dir = os.path.join(model_files_base_directory, exp_name)
-    
-    # 1. Find all synthetic datasets matching the pattern
-    synthetic_files = [f for f in os.listdir(base_model_dir) if f.startswith("seen_synthetic_df_") and f.endswith(".csv")]
-    
-    if not synthetic_files:
-        print(f"No synthetic or real unseen datasets found.")
-        return
+    ORIGINAL_DATA_PATH = os.path.join(vqvae_models_dir, "unseen_data_preprocessed.csv")
+    MODEL_WEIGHTS_PATH = os.path.join(vqvae_models_dir, "final_model.pth") 
 
-    MODEL_WEIGHTS_PATH = os.path.join(vqvae_models_dir, vq_name, "final_model.pth") 
+    # Define the specific ratios we expect to process
+    ratios = ["70_5", "60_15", "50_25", "25_50"]
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -114,13 +101,15 @@ def main():
         print(f"Error: Weights not found at {MODEL_WEIGHTS_PATH}")
         return
 
-    for file_name in synthetic_files:
-        # Extract ratio from file_name (e.g., seen_synthetic_df_70_5.csv -> 70_5)
-        ratio = file_name.replace("seen_synthetic_df_", "").replace(".csv", "")
-        
+    for ratio in ratios:
+        file_name = f"seen_synthetic_df_{ratio}.csv"
         ENCODED_DATA_PATH = os.path.join(base_model_dir, file_name)
         SAVE_OUTPUT_PATH = os.path.join(base_model_dir, f"synthetic_{ratio}_reconstructed.csv")
         
+        if not os.path.exists(ENCODED_DATA_PATH):
+            print(f"Skipping ratio {ratio}: encoded data not found at {ENCODED_DATA_PATH}")
+            continue
+
         print(f"\n--- Processing {file_name} ---")
         try:
             recon_df, _ = reconstruct_pipeline(
@@ -128,8 +117,9 @@ def main():
                 ENCODED_DATA_PATH, 
                 model, 
                 device,
+                vqvae_config=vqvae_config, # Pass full vqvae_config for scaler init
                 window_size=vqvae_config.get('window_size', 300),
-                stride=vqvae_config.get('stride', 30) # Updated to 30 per your 10% stride description
+                stride=vqvae_config.get('stride', 30)
             )
             
             # Save results

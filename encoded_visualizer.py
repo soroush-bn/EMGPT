@@ -65,9 +65,7 @@ def plot_synthetic_signals(signals, labels, save_path, max_plots=9):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, required=True, help='Path to Transformer config (replicate_small.yaml)')
-    parser.add_argument("--vqvae_config", type=str, default=None, help="Path to VQ-VAE config")
-    parser.add_argument("--vqvae_ckpt", type=str, default=None, help="Path to VQ-VAE weights")
+    parser.add_argument('--config', type=str, required=True, help='Path to consolidated config (e.g., model_large.yaml)')
     parser.add_argument("--num_plots", type=int, default=9, help="Number of generated samples to plot")
     return parser.parse_args()
 
@@ -75,28 +73,20 @@ if __name__ == "__main__":
     args = get_args()
 
     with open(args.config, "r") as file:
-        transformer_config = yaml.safe_load(file)
+        full_config = yaml.safe_load(file)
     
-    exp_name = transformer_config['exp_name']
+    tr_config = full_config
+    vqvae_config = full_config.get('vqvae', full_config)
+    
+    exp_name = tr_config['exp_name']
+    vq_name = vqvae_config['name']
+    
     model_files_base_directory = os.path.join(pathlib.Path(__file__).resolve().parent.__str__(), "models")
     save_dir = os.path.join(model_files_base_directory, exp_name)
 
-    # Resolve VQ-VAE paths
-    vq_config_path = args.vqvae_config
-    vq_ckpt_path = args.vqvae_ckpt
+    # Resolve VQ-VAE paths automatically from consolidated config
+    vq_ckpt_path = f"./VQVAE/models/{vq_name}/final_model.pth"
 
-    if vq_config_path is None or vq_ckpt_path is None:
-        # If not provided, try to derive from VQ_CONFIG env or default to tuned2
-        vq_config_path = vq_config_path or "./VQVAE/tuned_config2.yaml"
-        with open(vq_config_path, 'r') as file:
-            vq_cfg = yaml.safe_load(file)
-        vq_name = vq_cfg.get('name', 'tuned2')
-        vq_ckpt_path = vq_ckpt_path or f"./VQVAE/models/{vq_name}/final_model.pth"
-
-    with open(vq_config_path, 'r') as file:
-        vqvae_config_full = yaml.safe_load(file)
-        vqvae_config = vqvae_config_full.get('vqvae', vqvae_config_full)
-        
     # 2. Initialize the decoder
     decoder = VQVAESignalDecoder(
         vqvae_model_path=vq_ckpt_path, 

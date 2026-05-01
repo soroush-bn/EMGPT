@@ -22,4 +22,4 @@ NUM_GPUS=$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)
 echo "Number of GPUs detected: $NUM_GPUS"
 
 
-python encoded_classification.py --config "$CONFIG" --vqvae_config "$VQ_CONFIG"
+python encoded_classification.py --config "$CONFIG"

@@ -166,15 +166,14 @@ def plot_classification_results(df, save_dir):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, required=True, help="Path to Transformer config")
-    parser.add_argument('--vqvae_config', type=str, required=True, help="Path to VQ-VAE config")
+    parser.add_argument('--config', type=str, required=True, help="Path to consolidated config")
     args = parser.parse_args()
 
     with open(args.config, 'r') as f:
-        tr_config = yaml.safe_load(f)
-    with open(args.vqvae_config, 'r') as f:
-        vqvae_config_full = yaml.safe_load(f)
-        vqvae_config = vqvae_config_full.get('vqvae', vqvae_config_full)
+        full_config = yaml.safe_load(f)
+    
+    tr_config = full_config
+    vqvae_config = full_config.get('vqvae', full_config)
 
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
