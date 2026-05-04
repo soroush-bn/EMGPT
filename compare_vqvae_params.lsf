@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# LSF Batch Script for VQ-VAE Parameter Tuning Orchestration
+# This job runs the orchestrator which submits parallel sub-jobs for each parameter group.
+
+#BSUB -J vqvae_tuning_master
+#BSUB -o logs/master_%J.out
+#BSUB -e logs/master_%J.err
+#BSUB -W 24:00
+#BSUB -q long # Use a long queue as this orchestrates multiple rounds
+
+set -euo pipefail
+
+# Load environment
+if [ -f /etc/profile.d/modules.sh ]; then
+    source /etc/profile.d/modules.sh
+fi
+module purge
+module load miniconda/pytorch-tensorflow-gpu
+
+# Ensure required packages are installed
+python -m pip install --user tqdm PyYAML pandas
+
+export PYTHONUNBUFFERED=1
+
+# Run the orchestrator
+# It will use configs/compare_vqvae_params.yaml as the base configuration
+python compare_vqvae_params.py --config configs/compare_vqvae_params.yaml --mode orchestrator

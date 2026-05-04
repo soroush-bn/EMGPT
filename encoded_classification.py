@@ -270,6 +270,32 @@ def main():
             "Within-Subj F1": f1_w
         })
 
+        # EXPERIMENT 4: Train on Duplicated Seen (matching Augmented size), Test on UNSEEN
+        print(f" [EXP 4] Training on Duplicated Seen ({r}), Testing on UNSEEN...")
+        num_to_dup = len(X_synth)
+        indices = np.random.choice(len(X_seen), num_to_dup, replace=True)
+        X_dup_extra = X_seen[indices]
+        y_dup_extra = y_seen[indices]
+        p_ids_dup_extra = p_ids_seen[indices]
+        
+        X_dup = torch.cat([X_seen, X_dup_extra], dim=0)
+        y_dup = torch.cat([y_seen, y_dup_extra], dim=0)
+        p_ids_dup = np.concatenate([p_ids_seen, p_ids_dup_extra], axis=0)
+        
+        acc_g, f1_g, acc_w, f1_w = run_classification_workflow(
+            X_dup, y_dup, p_ids_dup, 
+            X_unseen, y_unseen, p_ids_unseen, 
+            device, code_dim, num_participants
+        )
+        results.append({
+            "Experiment": "Exp 4: Duplicated Seen",
+            "Ratio": r,
+            "Between-Subj Acc": acc_g,
+            "Between-Subj F1": f1_g,
+            "Within-Subj Acc": acc_w,
+            "Within-Subj F1": f1_w
+        })
+
     # --- Print Summary ---
     print("\n" + "="*100)
     print(f"{'CLASSIFICATION EXPERIMENTS SUMMARY':^100}")
