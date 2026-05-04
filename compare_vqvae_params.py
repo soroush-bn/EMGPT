@@ -131,8 +131,7 @@ def main():
         tuning_params = {
             'codebook_size': [256, 512, 1024, 2048],
             'code_dim': [128, 256, 512, 1024],
-            'window_size': [300, 500, 1000, 2000],
-            'stride': [30, 100, 150]
+            'stride': [100, 200, 300, 500]
         }
 
         best_params = copy.deepcopy(base_config)

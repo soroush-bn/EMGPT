@@ -1,20 +1,20 @@
 # Default configuration for VQ-VAE parameter comparison
 vqvae:
-  name: "vqvae_comparison2"
+  name: "vqvae_comparison3"
   number_of_epochs: 50 # Reduced epochs for faster comparison
   input_dim: 8
   hidden_dim: 512
   codebook_size: 512
   code_dim: 128
-  window_size: 300
-  stride: 30
+  window_size: 1000
+  stride: 100
   lambda_loss: 0.1
   batch_size: 64
   learning_rate: 1e-4
   decay: 0.99
 
   wandb_log: True
-  wandb_project: "vqvae_param_comparison2"
+  wandb_project: "vqvae_param_comparison3"
 
   participants_list_ids: ["033106b27b","bc4dd952fe","31afab1e30","97c6aaac2d","7037a93026","98aa5fac2d","ecfa481b42","e49db6578f","27f6898a3f","3f858df9cf","9780ed81f4"]
   sensor_type: "emg"
